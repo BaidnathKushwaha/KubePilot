@@ -1,11 +1,28 @@
+# Java
+*.class
 target/
+*.jar
+
+# Node
 node_modules/
 dist/
+
+# IDE
+.idea/
+.vscode/
+
+# Environment secrets
 .env
 .env.*
 !.env.example
-*.log
-*.kubeconfig
+
+# Kubernetes credentials
 kubeconfig
-.idea/
-.vscode/
+*.kubeconfig
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
