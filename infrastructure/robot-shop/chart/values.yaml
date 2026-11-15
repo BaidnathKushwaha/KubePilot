@@ -1,0 +1,78 @@
+
+image:
+  repo: robotshop
+  version: latest
+  pullPolicy: IfNotPresent
+
+eum:
+  key: null
+  url: https://eum-eu-west-1.instana.io
+
+psp:
+  enabled: false
+
+nodeport: false
+openshift: false
+ocCreateRoute: false
+
+cart:
+  resources:
+    requests: { cpu: 50m, memory: 40Mi }
+    limits: { cpu: 200m, memory: 100Mi }
+
+catalogue:
+  resources:
+    requests: { cpu: 50m, memory: 40Mi }
+    limits: { cpu: 200m, memory: 100Mi }
+
+dispatch:
+  resources:
+    requests: { cpu: 50m, memory: 40Mi }
+    limits: { cpu: 200m, memory: 100Mi }
+
+mongodb:
+  resources:
+    requests: { cpu: 50m, memory: 100Mi }
+    limits: { cpu: 200m, memory: 200Mi }
+
+mysql:
+  resources:
+    requests: { cpu: 100m, memory: 400Mi }
+    limits: { cpu: 300m, memory: 700Mi }
+
+payment:
+  gateway: null
+  resources:
+    requests: { cpu: 50m, memory: 40Mi }
+    limits: { cpu: 200m, memory: 100Mi }
+
+rabbitmq:
+  resources:
+    requests: { cpu: 50m, memory: 128Mi }
+    limits: { cpu: 200m, memory: 256Mi }
+
+ratings:
+  resources:
+    requests: { cpu: 50m, memory: 40Mi }
+    limits: { cpu: 200m, memory: 100Mi }
+
+redis:
+  storageClassName: hostpath
+  resources:
+    requests: { cpu: 50m, memory: 40Mi }
+    limits: { cpu: 200m, memory: 100Mi }
+
+shipping:
+  resources:
+    requests: { cpu: 50m, memory: 256Mi }
+    limits: { cpu: 300m, memory: 512Mi }
+
+user:
+  resources:
+    requests: { cpu: 50m, memory: 40Mi }
+    limits: { cpu: 200m, memory: 100Mi }
+
+web:
+  resources:
+    requests: { cpu: 50m, memory: 40Mi }
+    limits: { cpu: 200m, memory: 100Mi }

@@ -26,3 +26,9 @@ kubeconfig
 # OS
 .DS_Store
 Thumbs.db
+
+# Local upstream clone
+infrastructure/robot-shop/upstream/
+
+# Generated Helm output
+infrastructure/robot-shop/rendered-robot-shop.yaml
