@@ -1,4 +1,3 @@
-
 package com.kubepilot.dto;
 
 import java.util.Map;
@@ -12,6 +11,9 @@ public record PodResponse(
         int restarts,
         String createdAt,
         boolean ready,
-        Map<String, String> labels
+        Map<String, String> labels,
+        String ownerKind,
+        String ownerName,
+        String ownerUid
 ) {
 }

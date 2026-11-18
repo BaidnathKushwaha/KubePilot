@@ -9,6 +9,7 @@ import io.kubernetes.client.openapi.models.V1Pod;
 import io.kubernetes.client.openapi.models.V1PodList;
 import io.kubernetes.client.openapi.models.V1ContainerStatus;
 import org.springframework.stereotype.Service;
+import io.kubernetes.client.openapi.models.V1OwnerReference;
 
 import java.util.List;
 import java.util.Map;
@@ -104,6 +105,27 @@ public class PodDiscoveryService {
                         ? Map.copyOf(pod.getMetadata().getLabels())
                         : Map.of();
 
-        return new PodResponse(name,namespace,status,nodeName,podIP,restarts,createdAt,ready,labels);
+        String ownerKind = null;
+        String ownerName = null;
+        String ownerUid = null;
+
+        if (pod.getMetadata() != null
+                && pod.getMetadata().getOwnerReferences() != null) {
+
+            V1OwnerReference controllerOwner =
+                    pod.getMetadata().getOwnerReferences()
+                            .stream()
+                            .filter(ref -> Boolean.TRUE.equals(ref.getController()))
+                            .findFirst()
+                            .orElse(null);
+
+            if (controllerOwner != null) {
+                ownerKind = controllerOwner.getKind();
+                ownerName = controllerOwner.getName();
+                ownerUid = controllerOwner.getUid();
+            }
+        }
+        return new PodResponse(name,namespace,status,nodeName,podIP,restarts,createdAt,ready,labels,
+                ownerKind,ownerName,ownerUid);
     }
 }

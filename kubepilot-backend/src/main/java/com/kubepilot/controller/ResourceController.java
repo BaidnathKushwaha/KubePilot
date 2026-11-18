@@ -62,6 +62,17 @@ public class ResourceController {
         }
     }
 
+    @GetMapping("/statefulsets")
+    public List<StatefulSetResponse> getStatefulSets(
+            @RequestParam(required = false) String namespace) {
+
+        try {
+            return resourceService.getStatefulSets(namespace);
+        } catch (ApiException e) {
+            throw kubernetesError("statefulsets", e);
+        }
+    }
+
     private ResponseStatusException kubernetesError(
             String resource, ApiException exception) {
 

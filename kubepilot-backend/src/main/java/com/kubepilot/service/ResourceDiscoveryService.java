@@ -70,6 +70,52 @@ public class ResourceDiscoveryService {
         );
     }
 
+    // 1.12 STATEFULSETS
+
+    public List<StatefulSetResponse> getStatefulSets(String namespace)
+            throws ApiException {
+
+        V1StatefulSetList list = namespace == null || namespace.isBlank()
+                ? appsApi.listStatefulSetForAllNamespaces().execute()
+                : appsApi.listNamespacedStatefulSet(namespace).execute();
+
+        return list.getItems().stream()
+                .map(this::mapStatefulSet)
+                .toList();
+    }
+
+    private StatefulSetResponse mapStatefulSet(V1StatefulSet statefulSet) {
+
+        V1ObjectMeta metadata = statefulSet.getMetadata();
+        V1StatefulSetSpec spec = statefulSet.getSpec();
+        V1StatefulSetStatus status = statefulSet.getStatus();
+
+        return new StatefulSetResponse(
+                metadata.getName(),
+                metadata.getNamespace(),
+                metadata.getUid(),
+
+                spec != null && spec.getReplicas() != null
+                        ? spec.getReplicas() : 0,
+
+                status != null && status.getCurrentReplicas() != null
+                        ? status.getCurrentReplicas() : 0,
+
+                status != null && status.getReadyReplicas() != null
+                        ? status.getReadyReplicas() : 0,
+
+                spec != null ? spec.getServiceName() : null,
+
+                spec != null && spec.getSelector() != null
+                        ? safeMap(spec.getSelector().getMatchLabels())
+                        : Map.of(),
+
+                metadata.getCreationTimestamp() != null
+                        ? metadata.getCreationTimestamp().toString()
+                        : null
+        );
+    }
+
     // 1.8 SERVICES
 
     public List<ServiceResponse> getServices(String namespace)
@@ -220,9 +266,9 @@ public class ResourceDiscoveryService {
 
         if (slice.getEndpoints() != null) {
 
-            for (DiscoveryV1Endpoint endpoint : slice.getEndpoints()) {
+            for (V1Endpoint endpoint : slice.getEndpoints()) {
 
-                DiscoveryV1EndpointConditions conditions =
+                V1EndpointConditions conditions =
                         endpoint.getConditions();
 
                 V1ObjectReference target = endpoint.getTargetRef();

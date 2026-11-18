@@ -28,6 +28,9 @@ public class TopologyDiscoveryService {
     public TopologyResponse getTopology(String namespace)
             throws ApiException {
 
+        List<StatefulSetResponse> statefulSets =
+                resourceService.getStatefulSets(namespace);
+
         List<NodeResponse> nodes = nodeService.getNodes();
 
         List<PodResponse> pods = namespace == null || namespace.isBlank()
@@ -117,6 +120,47 @@ public class TopologyDiscoveryService {
                             deploymentId,
                             nodeId("Pod", pod.namespace(), pod.name()),
                             "SELECTS"
+                    ));
+                }
+            }
+        }
+
+        // Add StatefulSets and their actual Pod ownership relationships.
+
+        for (StatefulSetResponse statefulSet : statefulSets) {
+
+            String statefulSetId = nodeId(
+                    "StatefulSet",
+                    statefulSet.namespace(),
+                    statefulSet.name()
+            );
+
+            topologyNodes.add(new TopologyNode(
+                    statefulSetId,
+                    "StatefulSet",
+                    statefulSet.name(),
+                    statefulSet.namespace(),
+                    statefulSet.readyReplicas()
+                            + "/" + statefulSet.desiredReplicas()
+                            + " ready"
+            ));
+
+            for (PodResponse pod : pods) {
+
+                if (!statefulSet.namespace().equals(pod.namespace())) {
+                    continue;
+                }
+
+                boolean isOwnedByStatefulSet =
+                        "StatefulSet".equals(pod.ownerKind())
+                                && statefulSet.name().equals(pod.ownerName())
+                                && Objects.equals(statefulSet.uid(), pod.ownerUid());
+
+                if (isOwnedByStatefulSet) {
+                    edges.add(new TopologyEdge(
+                            statefulSetId,
+                            nodeId("Pod", pod.namespace(), pod.name()),
+                            "OWNS"
                     ));
                 }
             }
