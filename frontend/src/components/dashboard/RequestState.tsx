@@ -1,10 +1,11 @@
 import { AlertTriangle, LoaderCircle, RefreshCw } from 'lucide-react'
+import type { ReactNode } from 'react'
 
 interface RequestStateProps {
   loading: boolean
   error: string | null
   onRetry: () => void
-  children?: React.ReactNode
+  children?: ReactNode
 }
 
 export function RequestState({ loading, error, onRetry, children }: RequestStateProps) {
