@@ -1,4 +1,4 @@
-import { Menu, RefreshCw, Server, Signal } from 'lucide-react'
+import { Menu, Server, Signal } from 'lucide-react'
 import { useLocation } from 'react-router-dom'
 import { getPageTitle } from '../../config/navigation'
 
