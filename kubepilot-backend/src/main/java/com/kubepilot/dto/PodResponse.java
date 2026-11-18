@@ -1,6 +1,8 @@
 
 package com.kubepilot.dto;
 
+import java.util.Map;
+
 public record PodResponse(
         String name,
         String namespace,
@@ -9,6 +11,7 @@ public record PodResponse(
         String podIP,
         int restarts,
         String createdAt,
-        boolean ready
+        boolean ready,
+        Map<String, String> labels
 ) {
 }

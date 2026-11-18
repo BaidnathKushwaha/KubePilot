@@ -11,6 +11,7 @@ import io.kubernetes.client.openapi.models.V1ContainerStatus;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class PodDiscoveryService {
@@ -97,15 +98,12 @@ public class PodDiscoveryService {
                             Boolean.TRUE.equals(container.getReady()));
         }
 
-        return new PodResponse(
-                name,
-                namespace,
-                status,
-                nodeName,
-                podIP,
-                restarts,
-                createdAt,
-                ready
-        );
+        Map<String, String> labels =
+                pod.getMetadata() != null
+                        && pod.getMetadata().getLabels() != null
+                        ? Map.copyOf(pod.getMetadata().getLabels())
+                        : Map.of();
+
+        return new PodResponse(name,namespace,status,nodeName,podIP,restarts,createdAt,ready,labels);
     }
 }

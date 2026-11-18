@@ -21,7 +21,7 @@ public class PodController {
     public PodController(PodDiscoveryService podDiscoveryService) {
         this.podDiscoveryService = podDiscoveryService;
     }
-    
+
     @GetMapping("/pods")
     public List<PodResponse> getPods(
             @org.springframework.web.bind.annotation.RequestParam(
