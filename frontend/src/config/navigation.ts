@@ -2,7 +2,6 @@ import {
   Activity,
   Boxes,
   ChartNoAxesCombined,
-  CircleDot,
   GitBranch,
   LayoutDashboard,
   Network,
