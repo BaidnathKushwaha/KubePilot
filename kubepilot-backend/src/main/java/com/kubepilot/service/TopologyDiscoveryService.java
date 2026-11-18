@@ -11,6 +11,7 @@ import java.util.*;
 @Service
 public class TopologyDiscoveryService {
 
+    private final TopologyGraphValidator graphValidator;
     private final NodeDiscoveryService nodeService;
     private final PodDiscoveryService podService;
     private final ResourceDiscoveryService resourceService;
@@ -18,11 +19,13 @@ public class TopologyDiscoveryService {
     public TopologyDiscoveryService(
             NodeDiscoveryService nodeService,
             PodDiscoveryService podService,
-            ResourceDiscoveryService resourceService) {
+            ResourceDiscoveryService resourceService,
+            TopologyGraphValidator graphValidator) {
 
         this.nodeService = nodeService;
         this.podService = podService;
         this.resourceService = resourceService;
+        this.graphValidator = graphValidator;
     }
 
     public TopologyResponse getTopology(String namespace)
@@ -54,9 +57,18 @@ public class TopologyDiscoveryService {
 
         // Add nodes
 
+        // Add nodes
+
+        Set<String> discoveredNodeIds = new HashSet<>();
+
         for (NodeResponse node : nodes) {
+
+            String id = nodeId("Node", null, node.name());
+
+            discoveredNodeIds.add(id);
+
             topologyNodes.add(new TopologyNode(
-                    nodeId("Node", null, node.name()),
+                    id,
                     "Node",
                     node.name(),
                     null,
@@ -66,11 +78,13 @@ public class TopologyDiscoveryService {
 
         // Add pods and pod -> node relationships
 
+        Set<String> discoveredPodIds = new HashSet<>();
+
         for (PodResponse pod : pods) {
 
             String podId = nodeId(
                     "Pod", pod.namespace(), pod.name());
-
+            discoveredPodIds.add(podId);
             topologyNodes.add(new TopologyNode(
                     podId,
                     "Pod",
@@ -80,11 +94,17 @@ public class TopologyDiscoveryService {
             ));
 
             if (pod.nodeName() != null) {
-                edges.add(new TopologyEdge(
-                        podId,
-                        nodeId("Node", null, pod.nodeName()),
-                        "SCHEDULED_ON"
-                ));
+
+                String targetNodeId = nodeId(
+                        "Node", null, pod.nodeName());
+
+                if (discoveredNodeIds.contains(targetNodeId)) {
+                    edges.add(new TopologyEdge(
+                            podId,
+                            targetNodeId,
+                            "SCHEDULED_ON"
+                    ));
+                }
             }
         }
 
@@ -168,11 +188,12 @@ public class TopologyDiscoveryService {
 
         // Add services and service -> pod relationships.
 
+        Set<String> discoveredServiceIds = new HashSet<>();
         for (ServiceResponse service : services) {
 
             String serviceId = nodeId(
                     "Service", service.namespace(), service.name());
-
+            discoveredServiceIds.add(serviceId);
             topologyNodes.add(new TopologyNode(
                     serviceId,
                     "Service",
@@ -220,11 +241,13 @@ public class TopologyDiscoveryService {
                         route.serviceName()
                 );
 
-                edges.add(new TopologyEdge(
-                        ingressId,
-                        serviceId,
-                        "ROUTES_TO"
-                ));
+                if (discoveredServiceIds.contains(serviceId)) {
+                    edges.add(new TopologyEdge(
+                            ingressId,
+                            serviceId,
+                            "ROUTES_TO"
+                    ));
+                }
             }
         }
 
@@ -245,15 +268,19 @@ public class TopologyDiscoveryService {
 
             if (slice.serviceName() != null) {
 
-                edges.add(new TopologyEdge(
-                        nodeId(
-                                "Service",
-                                slice.namespace(),
-                                slice.serviceName()
-                        ),
-                        sliceId,
-                        "HAS_ENDPOINT_SLICE"
-                ));
+                String serviceId = nodeId(
+                        "Service",
+                        slice.namespace(),
+                        slice.serviceName()
+                );
+
+                if (discoveredServiceIds.contains(serviceId)) {
+                    edges.add(new TopologyEdge(
+                            serviceId,
+                            sliceId,
+                            "HAS_ENDPOINT_SLICE"
+                    ));
+                }
             }
 
             for (EndpointResponse endpoint : slice.endpoints()) {
@@ -263,19 +290,23 @@ public class TopologyDiscoveryService {
                     continue;
                 }
 
-                edges.add(new TopologyEdge(
-                        sliceId,
-                        nodeId(
-                                "Pod",
-                                slice.namespace(),
-                                endpoint.targetRefName()
-                        ),
-                        "HAS_ENDPOINT"
-                ));
+                String podId = nodeId(
+                        "Pod",
+                        slice.namespace(),
+                        endpoint.targetRefName()
+                );
+
+                if (discoveredPodIds.contains(podId)) {
+                    edges.add(new TopologyEdge(
+                            sliceId,
+                            podId,
+                            "HAS_ENDPOINT"
+                    ));
+                }
             }
         }
 
-        return new TopologyResponse(topologyNodes, edges);
+        return graphValidator.validate(new TopologyResponse(topologyNodes, edges));
     }
 
     private boolean matchesSelector(
