@@ -37,3 +37,27 @@ export interface KubernetesPod {
   ownerName: string | null
   ownerUid: string | null
 }
+
+export interface NodeMetrics {
+  name: string
+  cpuMilliCores: number
+  memoryBytes: number
+  timestamp: string
+  window: string
+}
+
+export interface PodMetrics {
+  name: string
+  namespace: string
+  cpuMilliCores: number
+  memoryBytes: number
+  timestamp: string
+  window: string
+  containers: ContainerMetrics[]
+}
+
+export interface ContainerMetrics {
+  name: string
+  cpuMilliCores: number
+  memoryBytes: number
+}
