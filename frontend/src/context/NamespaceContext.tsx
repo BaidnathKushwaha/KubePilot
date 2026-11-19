@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { createContext, useContext, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { clusterApi } from '../services/api'
 
 interface NamespaceContextValue {
@@ -29,10 +29,10 @@ export function NamespaceProvider({ children }: { children: ReactNode }) {
     return () => controller.abort()
   }, [])
 
-  const setNamespace = (value: string) => setNamespaceState(value)
+  const setNamespace = useCallback((value: string) => setNamespaceState(value), [])
   const value = useMemo(() => ({
     namespace, setNamespace, namespaces, namespacesLoading, namespacesError,
-  }), [namespace, namespaces, namespacesLoading, namespacesError])
+  }), [namespace, setNamespace, namespaces, namespacesLoading, namespacesError])
 
   return <NamespaceContext.Provider value={value}>{children}</NamespaceContext.Provider>
 }
