@@ -810,13 +810,11 @@ export function TopologyPage() {
         )}
 
         {/* Empty state */}
-        {topology.nodes.length === 0 ? (
+        {visibleNodes.length === 0 ? (
           <div className="rounded-xl border border-white/[0.07] bg-[#0d1523] px-5 py-16 text-center">
             <GitBranch size={25} className="mx-auto text-cyan-200" />
-            <p className="mt-3 text-sm font-medium text-slate-200">No topology data</p>
-            <p className="mt-1 text-xs text-slate-500">
-              The API returned an empty topology for this cluster.
-            </p>
+            <p className="mt-3 text-sm font-medium text-slate-200">{topology.nodes.length === 0 ? 'No topology data' : 'No matching resources'}</p>
+            <p className="mt-1 text-xs text-slate-500">{topology.nodes.length === 0 ? 'The API returned an empty topology for this cluster.' : 'No resources match the selected namespace or search term. Change the namespace or clear the search filter.'}</p>
           </div>
         ) : (
           /* Canvas */
