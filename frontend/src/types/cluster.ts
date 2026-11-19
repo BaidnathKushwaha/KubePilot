@@ -81,3 +81,9 @@ export interface ClusterTopology {
   nodes: TopologyNode[]
   edges: TopologyEdge[]
 }
+
+export interface NamespaceInfo {
+  name: string
+  status: string
+  createdAt: string | null
+}
