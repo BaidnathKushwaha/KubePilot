@@ -4,12 +4,14 @@ import { RequestState } from '../components/dashboard/RequestState'
 import { StatusBadge } from '../components/dashboard/StatusBadge'
 import { clusterApi } from '../services/api'
 import type { KubernetesNode } from '../types/cluster'
+import { ResourceDetailsPanel } from '../components/dashboard/ResourceDetailsPanel'
 
 export function NodesPage() {
   const [nodes, setNodes] = useState<KubernetesNode[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
+  const [selectedNode, setSelectedNode] = useState<KubernetesNode | null>(null)
 
   const loadNodes = useCallback(async (signal?: AbortSignal) => {
     setLoading(true)
@@ -65,7 +67,7 @@ export function NodesPage() {
               <table className="w-full min-w-[760px] text-left text-xs">
                 <thead className="bg-white/[0.025] text-[10px] uppercase tracking-wider text-slate-500"><tr><th className="px-5 py-3 font-semibold">Node name</th><th className="px-5 py-3 font-semibold">Status</th><th className="px-5 py-3 font-semibold">Kubernetes version</th><th className="px-5 py-3 font-semibold">Architecture</th><th className="px-5 py-3 font-semibold">CPU capacity</th><th className="px-5 py-3 font-semibold">Memory capacity</th></tr></thead>
                 <tbody className="divide-y divide-white/[0.055]">
-                  {filteredNodes.map((node) => <tr key={node.name} className="transition hover:bg-white/[0.025]">
+                  {filteredNodes.map((node) => <tr key={node.name} className="cursor-pointer transition hover:bg-white/[0.045]" onClick={() => setSelectedNode(node)}>
                     <td className="px-5 py-4 font-medium text-slate-200">{node.name}</td><td className="px-5 py-4"><StatusBadge status={node.status} /></td><td className="px-5 py-4 text-slate-400">{node.kubernetesVersion || '—'}</td><td className="px-5 py-4 text-slate-400">{node.architecture || '—'}</td><td className="px-5 py-4 text-slate-400 tabular-nums">{node.capacity?.cpu ?? '—'}</td><td className="px-5 py-4 text-slate-400 tabular-nums">{node.capacity?.memory ?? '—'}</td>
                   </tr>)}
                 </tbody>
@@ -74,6 +76,11 @@ export function NodesPage() {
           )}
         </section>
       </RequestState>
+      {selectedNode && <ResourceDetailsPanel type="Node" name={selectedNode.name} status={selectedNode.status} onClose={() => setSelectedNode(null)} fields={[
+        { label: 'Scope', value: 'Cluster scoped' }, { label: 'Kubernetes version', value: selectedNode.kubernetesVersion },
+        { label: 'Architecture', value: selectedNode.architecture }, { label: 'CPU capacity', value: selectedNode.capacity?.cpu },
+        { label: 'Memory capacity', value: selectedNode.capacity?.memory },
+      ]} />}
     </div>
   )
 }
