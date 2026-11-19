@@ -1,4 +1,4 @@
-import { Boxes, ChevronRight, CircleDot, X } from 'lucide-react'
+import { Boxes, ChevronRight, Server, X } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 import { navigationItems } from '../../config/navigation'
 
@@ -117,14 +117,14 @@ export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
         <div className="border-t border-white/[0.07] p-4">
           <div className="rounded-xl border border-white/[0.07] bg-white/[0.025] p-3">
             <div className="flex items-center gap-2 text-xs font-medium text-slate-300">
-              <CircleDot size={14} className="text-amber-400" />
-              Development workspace
+              <Server size={14} className="text-cyan-300" />
+              Cluster workspace
             </div>
             <p className="mt-1.5 text-[11px] leading-5 text-slate-500">
-              Cluster data connection will be configured in a later milestone.
+              Live Kubernetes resources are discovered through the KubePilot backend.
             </p>
           </div>
-          <p className="mt-4 px-1 text-[10px] text-slate-600">KubePilot · Frontend preview</p>
+          <p className="mt-4 px-1 text-[10px] text-slate-600">KubePilot · Cluster operations</p>
         </div>
       </aside>
     </>
