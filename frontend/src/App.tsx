@@ -4,6 +4,7 @@ import { OverviewPage } from './pages/OverviewPage'
 import { NodesPage } from './pages/NodesPage'
 import { PodsPage } from './pages/PodsPage'
 import { MetricsPage } from './pages/MetricsPage'
+import { TopologyPage } from './pages/TopologyPage'
 import { ResourcePlaceholderPage } from './pages/ResourcePlaceholderPage'
 
 function App() {
@@ -17,7 +18,7 @@ function App() {
           <Route path="metrics" element={<MetricsPage />} />
           <Route path="workloads" element={<ResourcePlaceholderPage title="Workloads" description="Manage and inspect Deployments, StatefulSets, and DaemonSets." eyebrow="Workloads" />} />
           <Route path="services" element={<ResourcePlaceholderPage title="Services & Networking" description="Explore Services, Ingress resources, and cluster networking relationships." eyebrow="Networking" />} />
-          <Route path="topology" element={<ResourcePlaceholderPage title="Cluster topology" description="Understand how resources connect across your cluster." eyebrow="Visualization" />} />
+          <Route path="topology" element={<TopologyPage />} />
           <Route path="events" element={<ResourcePlaceholderPage title="Events" description="Review Kubernetes events and investigate changes in cluster behavior." eyebrow="Observability" />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
