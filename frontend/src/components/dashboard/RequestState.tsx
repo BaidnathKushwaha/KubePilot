@@ -10,7 +10,7 @@ interface RequestStateProps {
   children?: ReactNode
 }
 
-function LoadingSkeleton() {
+function LoadingSkeleton({ label }: { label: string }) {
   return (
     <div role="status" aria-live="polite" aria-label="Loading cluster data" className="space-y-4">
       <span className="sr-only">Loading cluster data...</span>
@@ -29,7 +29,7 @@ function LoadingSkeleton() {
       </div>
       <div className="flex items-center justify-center gap-2 text-xs text-slate-500">
         <LoaderCircle size={14} className="animate-spin text-cyan-300" />
-        {loadingLabel}
+        {label}
       </div>
     </div>
   )
@@ -43,7 +43,7 @@ export function RequestState({
   errorTitle = 'Unable to load cluster data',
   children,
 }: RequestStateProps) {
-  if (loading) return <LoadingSkeleton />
+  if (loading) return <LoadingSkeleton label={loadingLabel} />
 
   if (error) {
     return (
