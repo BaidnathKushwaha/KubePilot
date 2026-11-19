@@ -51,13 +51,13 @@ export function Topbar({ onMenuClick }: TopbarProps) {
       </div>
 
       <div className="flex items-center gap-2 sm:gap-3">
-        <label className="hidden items-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.025] px-3 py-2 text-xs text-slate-400 sm:flex">
-          Namespace
-          <select aria-label="Global namespace filter" value={namespace} onChange={event => setNamespace(event.target.value)} disabled={namespacesLoading || Boolean(namespacesError)} className="max-w-36 bg-transparent text-slate-200 outline-none disabled:opacity-50">
+        <div className="hidden items-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.025] px-3 py-2 text-xs sm:flex">
+          <span className="text-slate-400">Namespace</span>
+          {namespacesLoading ? <span className="flex items-center gap-1.5 text-slate-500"><LoaderCircle size={12} className="animate-spin"/>Loading</span> : namespacesError ? <button type="button" onClick={retryNamespaces} className="flex items-center gap-1.5 text-rose-300 hover:text-rose-200" title={namespacesError}><AlertCircle size={12}/>Retry</button> : <select aria-label="Global namespace filter" value={namespace} onChange={event => setNamespace(event.target.value)} className="max-w-36 bg-transparent text-slate-200 outline-none">
             <option value="">All namespaces</option>
             {namespaces.map(item => <option key={item} value={item}>{item}</option>)}
-          </select>
-        </label>
+          </select>}
+        </div>
         <div className="hidden items-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.025] px-3 py-2 md:flex">
           <Server size={14} className="text-slate-500" />
           <span className="text-xs text-slate-300">Cluster API</span>
