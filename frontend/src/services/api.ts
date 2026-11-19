@@ -5,6 +5,7 @@ import type {
   KubernetesPod,
   NodeMetrics,
   PodMetrics,
+  NamespaceInfo,
 } from '../types/cluster'
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080').replace(/\/$/, '')
@@ -25,12 +26,16 @@ async function request<T>(path: string, signal?: AbortSignal): Promise<T> {
 }
 
 export const clusterApi = {
+  getNamespaces: (signal?: AbortSignal) =>
+    request<NamespaceInfo[]>('/api/cluster/namespaces', signal),
   getOverview: (signal?: AbortSignal) =>
     request<ClusterOverview>('/api/cluster/overview', signal),
   getNodes: (signal?: AbortSignal) =>
     request<KubernetesNode[]>('/api/cluster/nodes', signal),
-  getPods: (signal?: AbortSignal) =>
-    request<KubernetesPod[]>('/api/cluster/pods', signal),
+  getPods: (namespace?: string, signal?: AbortSignal) => {
+    const query = namespace ? `?namespace=${encodeURIComponent(namespace)}` : ''
+    return request<KubernetesPod[]>(`/api/cluster/pods${query}`, signal)
+  },
   getTopology: (namespace?: string, signal?: AbortSignal) => {
     const query = namespace ? `?namespace=${encodeURIComponent(namespace)}` : ''
     return request<ClusterTopology>(`/api/cluster/topology${query}`, signal)
