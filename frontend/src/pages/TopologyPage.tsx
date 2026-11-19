@@ -12,6 +12,7 @@ import {
 import { RequestState } from '../components/dashboard/RequestState'
 import { clusterApi } from '../services/api'
 import type { ClusterTopology, TopologyNode } from '../types/cluster'
+import { useNamespace } from '../context/NamespaceContext'
 
 // ── Chip node (compact horizontal) ────────────────────────────────────────
 const CHIP_W       = 186    // chip node width
@@ -356,8 +357,7 @@ export function TopologyPage() {
   const [topology, setTopology]          = useState<ClusterTopology>({ nodes: [], edges: [] })
   const [loading, setLoading]            = useState(true)
   const [error, setError]                = useState<string | null>(null)
-  const [namespace, setNamespace]        = useState('')
-  const [namespaceOptions, setNsOptions] = useState<string[]>([])
+  const { namespace } = useNamespace()
   const [selected, setSelected]          = useState<TopologyNode | null>(null)
   const [search, setSearch]              = useState('')
 
@@ -366,12 +366,6 @@ export function TopologyPage() {
     try {
       const result = await clusterApi.getTopology(namespace || undefined, signal)
       setTopology(result)
-      if (!namespace) {
-        const nss = [
-          ...new Set(result.nodes.map(n => n.namespace).filter((v): v is string => Boolean(v))),
-        ].sort()
-        setNsOptions(nss)
-      }
       setSelected(null)
     } catch (cause) {
       if (cause instanceof Error && cause.name === 'AbortError') return
@@ -773,17 +767,7 @@ export function TopologyPage() {
       >
         {/* Filters */}
         <div className="flex flex-wrap items-center gap-2">
-          <label className="flex items-center gap-2 rounded-lg border border-white/10 bg-[#0d1523] px-3 py-2 text-xs text-slate-400">
-            Namespace
-            <select
-              value={namespace}
-              onChange={e => setNamespace(e.target.value)}
-              className="max-w-44 bg-transparent text-slate-200 outline-none"
-            >
-              <option value="">All namespaces</option>
-              {namespaceOptions.map(ns => <option key={ns} value={ns}>{ns}</option>)}
-            </select>
-          </label>
+          <span className="rounded-lg border border-white/10 bg-[#0d1523] px-3 py-2 text-xs text-slate-400">Namespace: <strong className="text-slate-200">{namespace || 'All namespaces'}</strong></span>
           <label className="relative min-w-48 flex-1 sm:max-w-xs">
             <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
             <input
