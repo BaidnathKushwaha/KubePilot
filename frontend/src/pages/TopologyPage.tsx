@@ -41,6 +41,7 @@ export function TopologyPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [namespace, setNamespace] = useState('')
+  const [namespaceOptions, setNamespaceOptions] = useState<string[]>([])
   const [selected, setSelected] = useState<TopologyNode | null>(null)
   const [search, setSearch] = useState('')
 
@@ -50,6 +51,7 @@ export function TopologyPage() {
     try {
       const result = await clusterApi.getTopology(namespace || undefined, signal)
       setTopology(result)
+      if (!namespace) setNamespaceOptions([...new Set(result.nodes.map((node) => node.namespace).filter((value): value is string => Boolean(value)))].sort())
       setSelected(null)
     } catch (cause) {
       if (cause instanceof Error && cause.name === 'AbortError') return
@@ -65,8 +67,7 @@ export function TopologyPage() {
     return () => controller.abort()
   }, [load])
 
-  const namespaces = useMemo(() => [...new Set(topology.nodes
-    .map((node) => node.namespace).filter((value): value is string => Boolean(value)))].sort(), [topology.nodes])
+  const namespaces = namespaceOptions
 
   const visibleNodes = useMemo(() => topology.nodes.filter((node) =>
     [node.name, node.type, node.namespace ?? '', node.status ?? '']
