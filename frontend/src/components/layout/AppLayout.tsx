@@ -2,11 +2,13 @@ import { useState } from 'react'
 import { Outlet } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
 import { Topbar } from './Topbar'
+import { NamespaceProvider } from '../../context/NamespaceContext'
 
 export function AppLayout() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   return (
+    <NamespaceProvider>
     <div className="min-h-screen bg-[#080d18] text-slate-200 lg:flex">
       <Sidebar
         mobileOpen={mobileMenuOpen}
@@ -20,5 +22,6 @@ export function AppLayout() {
         </main>
       </div>
     </div>
+    </NamespaceProvider>
   )
 }
