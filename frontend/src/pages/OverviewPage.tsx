@@ -75,7 +75,7 @@ export function OverviewPage() {
               <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <h2 className="text-sm font-semibold text-slate-100">Cluster resources</h2>
-                  <p className="mt-1 text-xs text-slate-500">Current snapshot from the cluster overview API</p>
+                  <p className="mt-1 text-xs text-slate-500">Cluster-wide snapshot. Namespace selection applies to namespaced resource views.</p>
                 </div>
                 {updatedAt && <p className="text-[11px] text-slate-500">Updated at {updatedAt}</p>}
               </div>
