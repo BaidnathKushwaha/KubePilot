@@ -3,6 +3,7 @@ import { Activity, Cpu, HardDrive, RefreshCw, Server } from 'lucide-react'
 import { RequestState } from '../components/dashboard/RequestState'
 import { clusterApi } from '../services/api'
 import type { KubernetesNode, NodeMetrics, PodMetrics } from '../types/cluster'
+import { useNamespace } from '../context/NamespaceContext'
 
 const REFRESH_MS = 15_000
 const GIB = 1024 ** 3
@@ -46,13 +47,14 @@ export function MetricsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [updatedAt, setUpdatedAt] = useState<string | null>(null)
+  const { namespace } = useNamespace()
 
   const refresh = useCallback(async (signal?: AbortSignal) => {
     setError(null)
     try {
       const [nodeData, podData, nodeInventory] = await Promise.all([
         clusterApi.getNodeMetrics(signal),
-        clusterApi.getPodMetrics(undefined, signal),
+        clusterApi.getPodMetrics(namespace || undefined, signal),
         clusterApi.getNodes(signal),
       ])
       setNodeMetrics(nodeData)
@@ -65,7 +67,7 @@ export function MetricsPage() {
     } finally {
       if (!signal?.aborted) setLoading(false)
     }
-  }, [])
+  }, [namespace])
 
   useEffect(() => {
     const controller = new AbortController()
@@ -105,7 +107,7 @@ export function MetricsPage() {
         {rows.length === 0 ? <p className="text-xs text-slate-500">No node metrics currently available from the Kubernetes Metrics API.</p> : <div className="space-y-7">{rows.map((node) => <div key={node.name} className="space-y-4"><div className="flex justify-between"><p className="text-sm font-medium text-slate-200">{node.name}</p><span className="text-[10px] text-slate-500">Window: {node.window || 'Not reported'}</span></div><div className="grid gap-5 md:grid-cols-2"><div><div className="mb-2 flex justify-between text-xs"><span className="text-slate-400">CPU</span><span className="text-slate-200">{cpu(node.cpuMilliCores)} / {node.cpuCapacity === null ? 'Unknown' : cpu(node.cpuCapacity)}</span></div><Bar value={node.cpuMilliCores} capacity={node.cpuCapacity} label="CPU capacity used"/></div><div><div className="mb-2 flex justify-between text-xs"><span className="text-slate-400">Memory</span><span className="text-slate-200">{bytes(node.memoryBytes)} / {node.memoryCapacity === null ? 'Unknown' : bytes(node.memoryCapacity)}</span></div><Bar value={node.memoryBytes} capacity={node.memoryCapacity} label="Memory capacity used"/></div></div></div>)}</div>}
       </section>
       <section className="rounded-xl border border-white/[0.07] bg-[#0d1523] p-5">
-        <div className="mb-5 flex items-center gap-2"><Activity size={16} className="text-cyan-200"/><h2 className="text-sm font-semibold text-slate-100">Top pods by CPU usage</h2></div>
+        <div className="mb-5 flex items-center gap-2"><Activity size={16} className="text-cyan-200"/><h2 className="text-sm font-semibold text-slate-100">Top pods by CPU usage {namespace ? `in ${namespace}` : '(all namespaces)'}</h2></div>
         {topPods.length === 0 ? <p className="text-xs text-slate-500">No pod metrics currently available.</p> : <div className="space-y-4">{topPods.map((pod) => { const maximum = Math.max(...topPods.map((item) => item.cpuMilliCores), 1); return <div key={`${pod.namespace}/${pod.name}`}><div className="mb-2 flex items-center justify-between gap-3 text-xs"><div className="min-w-0"><p className="truncate font-medium text-slate-200">{pod.name}</p><p className="text-[10px] text-slate-500">{pod.namespace}</p></div><div className="shrink-0 text-right"><p className="text-slate-200">{cpu(pod.cpuMilliCores)}</p><p className="text-[10px] text-slate-500">{bytes(pod.memoryBytes)}</p></div></div><div className="h-1.5 overflow-hidden rounded-full bg-slate-800"><div className="h-full rounded-full bg-cyan-400" style={{width:`${pod.cpuMilliCores / maximum * 100}%`}}/></div></div>})}</div>}
       </section>
       {timestamp && <p className="text-[10px] text-slate-600">Metrics API timestamp: {new Date(timestamp).toLocaleString()}. Refreshes every 15 seconds. This page shows current snapshots, not historical trends.</p>}
