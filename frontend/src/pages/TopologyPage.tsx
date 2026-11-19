@@ -25,12 +25,15 @@ const NODE_COLORS: Record<string, string> = {
 
 function ResourceNode({ data }: NodeProps) {
   const resource = data.resource as TopologyNode
-  return <div className={`min-w-[190px] rounded-xl border px-3 py-3 shadow-xl shadow-black/20 ${NODE_COLORS[resource.type] ?? 'border-white/15 bg-slate-800'}`}>
-    <Handle type="target" position={Position.Left} className="!h-2 !w-2 !border-0 !bg-cyan-300"/>
-    <div className="text-[9px] font-bold uppercase tracking-[0.16em] text-slate-400">{resource.type}</div>
-    <div className="mt-1 max-w-[220px] truncate text-xs font-semibold text-slate-100" title={resource.name}>{resource.name}</div>
-    <div className="mt-1 truncate text-[10px] text-slate-400">{resource.namespace ?? 'Cluster scope'} · {resource.status ?? 'Status unavailable'}</div>
-    <Handle type="source" position={Position.Right} className="!h-2 !w-2 !border-0 !bg-cyan-300"/>
+  return <div className={`w-[232px] rounded-xl border px-3.5 py-3.5 shadow-lg shadow-black/20 transition-colors ${NODE_COLORS[resource.type] ?? 'border-white/15 bg-slate-800'}`}>
+    <Handle type="target" position={Position.Left} className="!h-2.5 !w-2.5 !border-0 !bg-cyan-300"/>
+    <div className="flex items-center justify-between gap-2">
+      <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-300">{resource.type}</div>
+      <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-current opacity-70"/>
+    </div>
+    <div className="mt-2 break-words text-[13px] font-semibold leading-5 text-slate-100" title={resource.name}>{resource.name}</div>
+    <div className="mt-1.5 break-words text-[11px] leading-4 text-slate-400">{resource.namespace ?? 'Cluster scope'} · {resource.status ?? 'Status unavailable'}</div>
+    <Handle type="source" position={Position.Right} className="!h-2.5 !w-2.5 !border-0 !bg-cyan-300"/>
   </div>
 }
 
@@ -83,7 +86,7 @@ export function TopologyPage() {
     const positions = new Map<string, { x: number; y: number }>()
     for (const [layer, items] of byLayer) {
       items.sort((a, b) => (a.namespace ?? '').localeCompare(b.namespace ?? '') || a.name.localeCompare(b.name))
-      items.forEach((item, index) => positions.set(item.id, { x: 70 + layer * 285, y: 70 + index * 125 }))
+      items.forEach((item, index) => positions.set(item.id, { x: 90 + layer * 330, y: 100 + index * 116 }))
     }
     const nodes: Node[] = visibleNodes.map((item) => ({
       id: item.id,
@@ -98,11 +101,13 @@ export function TopologyPage() {
         id: `${edge.sourceId}-${edge.relation}-${edge.targetId}-${index}`,
         source: edge.sourceId,
         target: edge.targetId,
-        label: edge.relation.replaceAll('_', ' ').toLowerCase(),
+        type: 'smoothstep',
+        label: edge.relation === 'ROUTES_TO' ? 'routes to' : undefined,
         animated: edge.relation === 'ROUTES_TO',
-        style: { stroke: '#426176', strokeWidth: 1.5 },
-        labelStyle: { fill: '#94a3b8', fontSize: 9 },
-        labelBgStyle: { fill: '#0b1220', fillOpacity: 0.9 },
+        style: { stroke: edge.relation === 'ROUTES_TO' ? '#a78bfa' : '#476176', strokeWidth: edge.relation === 'ROUTES_TO' ? 1.8 : 1.15, opacity: edge.relation === 'ROUTES_TO' ? 0.9 : 0.48 },
+        labelStyle: { fill: '#c4b5fd', fontSize: 10, fontWeight: 600 },
+        labelBgStyle: { fill: '#0b1220', fillOpacity: 0.96 },
+        pathOptions: { borderRadius: 18 },
       }))
     return { nodes, edges }
   }, [visibleNodes, topology.edges, selected])
@@ -131,9 +136,9 @@ export function TopologyPage() {
 
       {error && <p role="status" className="text-xs text-amber-300">Refresh failed: {error}. Showing the last successful topology.</p>}
       {topology.nodes.length === 0 ? <div className="rounded-xl border border-white/[0.07] bg-[#0d1523] px-5 py-16 text-center"><GitBranch size={25} className="mx-auto text-cyan-200"/><p className="mt-3 text-sm font-medium text-slate-200">No topology resources discovered</p><p className="mt-1 text-xs text-slate-500">The API returned an empty topology for this cluster.</p></div> :
-        <div className="relative h-[650px] overflow-hidden rounded-xl border border-white/[0.08] bg-[#080f1b]">
-          <div className="absolute left-4 top-4 z-10 rounded-lg border border-white/[0.08] bg-[#0d1523]/90 px-3 py-2 text-[10px] text-slate-400">Drag nodes · Scroll to zoom · Select a resource for details</div>
-          <ReactFlow nodes={graph.nodes} edges={graph.edges} nodeTypes={nodeTypes} fitView fitViewOptions={{ padding: 0.18 }} minZoom={0.15} maxZoom={1.8} onNodeClick={(_, node) => setSelected(node.data.resource as TopologyNode)} onPaneClick={() => setSelected(null)} proOptions={{ hideAttribution: true }}>
+        <div className="relative h-[760px] overflow-hidden rounded-xl border border-white/[0.08] bg-[#080f1b]">
+          <div className="absolute left-4 top-4 z-10 max-w-[calc(100%-32px)] rounded-lg border border-white/[0.08] bg-[#0d1523]/95 px-3 py-2 text-[10px] text-slate-400 shadow-lg">Drag nodes · Scroll to zoom · Use fit view to frame the full graph</div>
+          <ReactFlow nodes={graph.nodes} edges={graph.edges} nodeTypes={nodeTypes} fitView fitViewOptions={{ padding: 0.22, minZoom: 0.12, maxZoom: 0.9 }} minZoom={0.12} maxZoom={1.8} nodesConnectable={false} onNodeClick={(_, node) => setSelected(node.data.resource as TopologyNode)} onPaneClick={() => setSelected(null)} proOptions={{ hideAttribution: true }}>
             <Background color="#26364a" gap={24} size={1}/>
             <Controls className="!overflow-hidden !rounded-lg !border-white/10 !bg-[#101a2a] [&>button]:!border-white/10 [&>button]:!bg-[#101a2a] [&>button]:!fill-slate-300"/>
             <MiniMap pannable zoomable nodeColor={(node) => {
