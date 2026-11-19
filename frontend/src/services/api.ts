@@ -1,5 +1,6 @@
 import type {
   ClusterOverview,
+  ClusterTopology,
   KubernetesNode,
   KubernetesPod,
   NodeMetrics,
@@ -30,6 +31,10 @@ export const clusterApi = {
     request<KubernetesNode[]>('/api/cluster/nodes', signal),
   getPods: (signal?: AbortSignal) =>
     request<KubernetesPod[]>('/api/cluster/pods', signal),
+  getTopology: (namespace?: string, signal?: AbortSignal) => {
+    const query = namespace ? `?namespace=${encodeURIComponent(namespace)}` : ''
+    return request<ClusterTopology>(`/api/cluster/topology${query}`, signal)
+  },
   getNodeMetrics: (signal?: AbortSignal) =>
     request<NodeMetrics[]>('/api/metrics/nodes', signal),
   getPodMetrics: (namespace?: string, signal?: AbortSignal) => {
