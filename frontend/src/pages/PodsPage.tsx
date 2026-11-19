@@ -4,25 +4,29 @@ import { RequestState } from '../components/dashboard/RequestState'
 import { StatusBadge } from '../components/dashboard/StatusBadge'
 import { clusterApi } from '../services/api'
 import type { KubernetesPod } from '../types/cluster'
+import { useNamespace } from '../context/NamespaceContext'
+import { ResourceDetailsPanel } from '../components/dashboard/ResourceDetailsPanel'
 
 export function PodsPage() {
   const [pods, setPods] = useState<KubernetesPod[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
+  const [selectedPod, setSelectedPod] = useState<KubernetesPod | null>(null)
+  const { namespace } = useNamespace()
 
   const loadPods = useCallback(async (signal?: AbortSignal) => {
     setLoading(true)
     setError(null)
     try {
-      setPods(await clusterApi.getPods(signal))
+      setPods(await clusterApi.getPods(namespace || undefined, signal))
     } catch (cause) {
       if (cause instanceof Error && cause.name === 'AbortError') return
       setError(cause instanceof Error ? cause.message : 'Unexpected error while loading pods')
     } finally {
       if (!signal?.aborted) setLoading(false)
     }
-  }, [])
+  }, [namespace])
 
   useEffect(() => {
     const controller = new AbortController()
@@ -41,7 +45,7 @@ export function PodsPage() {
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-cyan-300/80">Workspace / Workloads</p>
           <h1 className="mt-3 text-2xl font-semibold tracking-tight text-white sm:text-[30px]">Pods</h1>
-          <p className="mt-2 text-sm leading-6 text-slate-400">Pod inventory across all namespaces in the current cluster.</p>
+          <p className="mt-2 text-sm leading-6 text-slate-400">Pod inventory {namespace ? `in ${namespace}` : 'across all namespaces'} in the current cluster.</p>
         </div>
         <button type="button" onClick={() => void loadPods()} disabled={loading} className="inline-flex items-center gap-2 self-start rounded-lg border border-white/[0.09] px-3 py-2 text-xs text-slate-300 hover:bg-white/5 disabled:opacity-50 sm:self-auto"><RefreshCw size={13} className={loading ? 'animate-spin' : ''} /> Refresh</button>
       </section>
@@ -60,7 +64,7 @@ export function PodsPage() {
               <table className="w-full min-w-[900px] text-left text-xs">
                 <thead className="bg-white/[0.025] text-[10px] uppercase tracking-wider text-slate-500"><tr><th className="px-5 py-3 font-semibold">Pod name</th><th className="px-5 py-3 font-semibold">Namespace</th><th className="px-5 py-3 font-semibold">Status</th><th className="px-5 py-3 font-semibold">Ready</th><th className="px-5 py-3 font-semibold">Restarts</th><th className="px-5 py-3 font-semibold">Node</th><th className="px-5 py-3 font-semibold">Pod IP</th></tr></thead>
                 <tbody className="divide-y divide-white/[0.055]">
-                  {filteredPods.map((pod) => <tr key={`${pod.namespace}/${pod.name}`} className="transition hover:bg-white/[0.025]">
+                  {filteredPods.map((pod) => <tr key={`${pod.namespace}/${pod.name}`} className="cursor-pointer transition hover:bg-white/[0.045]" onClick={() => setSelectedPod(pod)}>
                     <td className="max-w-[260px] truncate px-5 py-4 font-medium text-slate-200" title={pod.name}>{pod.name}</td><td className="px-5 py-4 text-slate-400">{pod.namespace}</td><td className="px-5 py-4"><StatusBadge status={pod.status} /></td><td className="px-5 py-4"><StatusBadge status={pod.ready ? 'Ready' : 'Not ready'} /></td><td className={`px-5 py-4 tabular-nums ${pod.restarts > 0 ? 'text-amber-300' : 'text-slate-400'}`}>{pod.restarts}</td><td className="max-w-[180px] truncate px-5 py-4 text-slate-400" title={pod.nodeName ?? ''}>{pod.nodeName || '—'}</td><td className="px-5 py-4 font-mono text-slate-500">{pod.podIP || '—'}</td>
                   </tr>)}
                 </tbody>
@@ -69,6 +73,13 @@ export function PodsPage() {
           )}
         </section>
       </RequestState>
+      {selectedPod && <ResourceDetailsPanel type="Pod" name={selectedPod.name} status={selectedPod.status} onClose={() => setSelectedPod(null)} fields={[
+        { label: 'Namespace', value: selectedPod.namespace }, { label: 'Ready', value: selectedPod.ready ? 'Ready' : 'Not ready' },
+        { label: 'Restarts', value: selectedPod.restarts }, { label: 'Node', value: selectedPod.nodeName },
+        { label: 'Pod IP', value: selectedPod.podIP }, { label: 'Created', value: selectedPod.createdAt },
+        { label: 'Owner', value: selectedPod.ownerKind && selectedPod.ownerName ? `${selectedPod.ownerKind}: ${selectedPod.ownerName}` : null },
+        { label: 'Labels', value: Object.entries(selectedPod.labels ?? {}).map(([key, value]) => `${key}=${value}`).join(', ') },
+      ]} />}
     </div>
   )
 }
