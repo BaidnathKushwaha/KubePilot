@@ -7,6 +7,7 @@ interface NamespaceContextValue {
   namespaces: string[]
   namespacesLoading: boolean
   namespacesError: string | null
+  retryNamespaces: () => void
 }
 
 const NamespaceContext = createContext<NamespaceContextValue | null>(null)
@@ -16,6 +17,7 @@ export function NamespaceProvider({ children }: { children: ReactNode }) {
   const [namespaces, setNamespaces] = useState<string[]>([])
   const [namespacesLoading, setNamespacesLoading] = useState(true)
   const [namespacesError, setNamespacesError] = useState<string | null>(null)
+  const [retryKey, setRetryKey] = useState(0)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -27,12 +29,18 @@ export function NamespaceProvider({ children }: { children: ReactNode }) {
       })
       .finally(() => { if (!controller.signal.aborted) setNamespacesLoading(false) })
     return () => controller.abort()
+  }, [retryKey])
+
+  const retryNamespaces = useCallback(() => {
+    setNamespacesLoading(true)
+    setNamespacesError(null)
+    setRetryKey(key => key + 1)
   }, [])
 
   const setNamespace = useCallback((value: string) => setNamespaceState(value), [])
   const value = useMemo(() => ({
-    namespace, setNamespace, namespaces, namespacesLoading, namespacesError,
-  }), [namespace, setNamespace, namespaces, namespacesLoading, namespacesError])
+    namespace, setNamespace, namespaces, namespacesLoading, namespacesError, retryNamespaces,
+  }), [namespace, setNamespace, namespaces, namespacesLoading, namespacesError, retryNamespaces])
 
   return <NamespaceContext.Provider value={value}>{children}</NamespaceContext.Provider>
 }
