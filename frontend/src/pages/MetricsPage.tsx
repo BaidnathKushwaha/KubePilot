@@ -110,8 +110,8 @@ export function MetricsPage() {
         <div className="mb-5 flex items-center gap-2"><Activity size={16} className="text-cyan-200"/><h2 className="text-sm font-semibold text-slate-100">Top pods by CPU usage {namespace ? `in ${namespace}` : '(all namespaces)'}</h2></div>
         {topPods.length === 0 ? <p className="text-xs text-slate-500">No pod metrics currently available.</p> : <div className="space-y-4">{topPods.map((pod) => { const maximum = Math.max(...topPods.map((item) => item.cpuMilliCores), 1); return <div key={`${pod.namespace}/${pod.name}`}><div className="mb-2 flex items-center justify-between gap-3 text-xs"><div className="min-w-0"><p className="truncate font-medium text-slate-200">{pod.name}</p><p className="text-[10px] text-slate-500">{pod.namespace}</p></div><div className="shrink-0 text-right"><p className="text-slate-200">{cpu(pod.cpuMilliCores)}</p><p className="text-[10px] text-slate-500">{bytes(pod.memoryBytes)}</p></div></div><div className="h-1.5 overflow-hidden rounded-full bg-slate-800"><div className="h-full rounded-full bg-cyan-400" style={{width:`${pod.cpuMilliCores / maximum * 100}%`}}/></div></div>})}</div>}
       </section>
-      {timestamp && <p className="text-[10px] text-slate-600">Metrics API timestamp: {new Date(timestamp).toLocaleString()}. Refreshes every 15 seconds. This page shows current snapshots, not historical trends.</p>}
-      {error && <p role="status" className="text-xs text-amber-300">Refresh failed: {error}. Showing the last successful snapshot.</p>}
+      {error && (nodeMetrics.length > 0 || podMetrics.length > 0) && <p role="status" className="rounded-lg border border-amber-300/15 bg-amber-300/[0.04] px-3 py-2 text-xs text-amber-200">Metrics refresh failed: {error}. Displaying the last successful snapshot.</p>}\n      {timestamp && <p className="text-[10px] text-slate-600">Metrics API timestamp: {new Date(timestamp).toLocaleString()}. Refreshes every 15 seconds. This page shows current snapshots, not historical trends.</p>}
+
     </RequestState>
   </div>
 }
