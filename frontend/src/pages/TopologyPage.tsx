@@ -5,7 +5,7 @@ import {
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import {
-  Boxes, Box, CircleHelp, Container, Database, GitBranch, Layers3,
+  Box, CircleHelp, Container, Database, GitBranch, Layers3,
   Network, RefreshCw, Router, Search, Server, Workflow, X,
   type LucideIcon,
 } from 'lucide-react'
