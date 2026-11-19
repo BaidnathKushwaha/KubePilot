@@ -1,4 +1,10 @@
-import type { ClusterOverview, KubernetesNode, KubernetesPod } from '../types/cluster'
+import type {
+  ClusterOverview,
+  KubernetesNode,
+  KubernetesPod,
+  NodeMetrics,
+  PodMetrics,
+} from '../types/cluster'
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080').replace(/\/$/, '')
 
@@ -24,4 +30,10 @@ export const clusterApi = {
     request<KubernetesNode[]>('/api/cluster/nodes', signal),
   getPods: (signal?: AbortSignal) =>
     request<KubernetesPod[]>('/api/cluster/pods', signal),
+  getNodeMetrics: (signal?: AbortSignal) =>
+    request<NodeMetrics[]>('/api/metrics/nodes', signal),
+  getPodMetrics: (namespace?: string, signal?: AbortSignal) => {
+    const query = namespace ? `?namespace=${encodeURIComponent(namespace)}` : ''
+    return request<PodMetrics[]>(`/api/metrics/pods${query}`, signal)
+  },
 }
