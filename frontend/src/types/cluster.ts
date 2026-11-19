@@ -61,3 +61,23 @@ export interface ContainerMetrics {
   cpuMilliCores: number
   memoryBytes: number
 }
+
+
+export interface TopologyNode {
+  id: string
+  type: 'Ingress' | 'Service' | 'Deployment' | 'StatefulSet' | 'EndpointSlice' | 'Pod' | 'Node' | string
+  name: string
+  namespace: string | null
+  status: string | null
+}
+
+export interface TopologyEdge {
+  sourceId: string
+  targetId: string
+  relation: string
+}
+
+export interface ClusterTopology {
+  nodes: TopologyNode[]
+  edges: TopologyEdge[]
+}
