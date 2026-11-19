@@ -43,7 +43,7 @@ export function NodesPage() {
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-cyan-300/80">Workspace / Compute</p>
           <h1 className="mt-3 text-2xl font-semibold tracking-tight text-white sm:text-[30px]">Nodes</h1>
-          <p className="mt-2 text-sm leading-6 text-slate-400">Machines registered with the Kubernetes control plane.</p>
+          <p className="mt-2 text-sm leading-6 text-slate-400">Cluster-scoped machines registered with the Kubernetes control plane. Namespace filtering does not apply to nodes.</p>
         </div>
         <button type="button" onClick={() => void loadNodes()} disabled={loading} className="inline-flex items-center gap-2 self-start rounded-lg border border-white/[0.09] px-3 py-2 text-xs text-slate-300 hover:bg-white/5 disabled:opacity-50 sm:self-auto">
           <RefreshCw size={13} className={loading ? 'animate-spin' : ''} /> Refresh
