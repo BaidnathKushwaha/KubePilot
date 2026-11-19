@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Menu, Server, Signal } from 'lucide-react'
+import { AlertCircle, LoaderCircle, Menu, RefreshCw, Server, Signal } from 'lucide-react'
 import { useLocation } from 'react-router-dom'
 import { getPageTitle } from '../../config/navigation'
 import { clusterApi } from '../../services/api'
@@ -13,7 +13,7 @@ export function Topbar({ onMenuClick }: TopbarProps) {
   const { pathname } = useLocation()
   const pageTitle = getPageTitle(pathname)
   const [apiOnline, setApiOnline] = useState<boolean | null>(null)
-  const { namespace, setNamespace, namespaces, namespacesLoading, namespacesError } = useNamespace()
+  const { namespace, setNamespace, namespaces, namespacesLoading, namespacesError, retryNamespaces } = useNamespace()
 
   useEffect(() => {
     let active = true
