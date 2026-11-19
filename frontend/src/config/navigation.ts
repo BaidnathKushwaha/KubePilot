@@ -4,6 +4,7 @@ import {
   ChartNoAxesCombined,
   GitBranch,
   LayoutDashboard,
+  Gauge,
   Network,
   Server,
   type LucideIcon,
@@ -51,6 +52,12 @@ export const navigationItems: NavigationItem[] = [
     label: 'Cluster topology',
     path: '/topology',
     icon: GitBranch,
+    group: 'observe',
+  },
+  {
+    label: 'Resource metrics',
+    path: '/metrics',
+    icon: Gauge,
     group: 'observe',
   },
   {
