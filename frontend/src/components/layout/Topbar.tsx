@@ -3,6 +3,7 @@ import { Menu, Server, Signal } from 'lucide-react'
 import { useLocation } from 'react-router-dom'
 import { getPageTitle } from '../../config/navigation'
 import { clusterApi } from '../../services/api'
+import { useNamespace } from '../../context/NamespaceContext'
 
 interface TopbarProps {
   onMenuClick: () => void
@@ -12,6 +13,7 @@ export function Topbar({ onMenuClick }: TopbarProps) {
   const { pathname } = useLocation()
   const pageTitle = getPageTitle(pathname)
   const [apiOnline, setApiOnline] = useState<boolean | null>(null)
+  const { namespace, setNamespace, namespaces, namespacesLoading, namespacesError } = useNamespace()
 
   useEffect(() => {
     let active = true
@@ -49,6 +51,13 @@ export function Topbar({ onMenuClick }: TopbarProps) {
       </div>
 
       <div className="flex items-center gap-2 sm:gap-3">
+        <label className="hidden items-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.025] px-3 py-2 text-xs text-slate-400 sm:flex">
+          Namespace
+          <select aria-label="Global namespace filter" value={namespace} onChange={event => setNamespace(event.target.value)} disabled={namespacesLoading || Boolean(namespacesError)} className="max-w-36 bg-transparent text-slate-200 outline-none disabled:opacity-50">
+            <option value="">All namespaces</option>
+            {namespaces.map(item => <option key={item} value={item}>{item}</option>)}
+          </select>
+        </label>
         <div className="hidden items-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.025] px-3 py-2 md:flex">
           <Server size={14} className="text-slate-500" />
           <span className="text-xs text-slate-300">Cluster API</span>
