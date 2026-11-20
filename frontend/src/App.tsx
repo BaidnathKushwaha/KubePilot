@@ -7,7 +7,6 @@ import { MetricsPage } from './pages/MetricsPage'
 import { TopologyPage } from './pages/TopologyPage'
 import { ResourcePlaceholderPage } from './pages/ResourcePlaceholderPage'
 import DeploymentsPage from './pages/DeploymentsPage'
-import StatefulSetsPage from './pages/StatefulSetsPage'
 
 function App() {
   return (
