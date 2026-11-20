@@ -7,6 +7,7 @@ import type {
   PodMetrics,
   NamespaceInfo,
 } from '../types/cluster'
+import type { PodInspection } from '../types/podInspection'
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080').replace(/\/$/, '')
 
@@ -36,6 +37,11 @@ export const clusterApi = {
     const query = namespace ? `?namespace=${encodeURIComponent(namespace)}` : ''
     return request<KubernetesPod[]>(`/api/cluster/pods${query}`, signal)
   },
+  getPodDetails: (namespace: string, podName: string, signal?: AbortSignal) =>
+      request<PodInspection>(
+          `/api/cluster/pods/${encodeURIComponent(namespace)}/${encodeURIComponent(podName)}/details`,
+          signal,
+      ),
   getTopology: (namespace?: string, signal?: AbortSignal) => {
     const query = namespace ? `?namespace=${encodeURIComponent(namespace)}` : ''
     return request<ClusterTopology>(`/api/cluster/topology${query}`, signal)
