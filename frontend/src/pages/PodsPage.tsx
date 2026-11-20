@@ -5,7 +5,7 @@ import { StatusBadge } from '../components/dashboard/StatusBadge'
 import { clusterApi } from '../services/api'
 import type { KubernetesPod } from '../types/cluster'
 import { useNamespace } from '../context/NamespaceContext'
-import { ResourceDetailsPanel } from '../components/dashboard/ResourceDetailsPanel'
+import { PodInspectionPanel } from '../components/dashboard/PodInspectionPanel'
 
 export function PodsPage() {
   const [pods, setPods] = useState<KubernetesPod[]>([])
@@ -73,13 +73,13 @@ export function PodsPage() {
           )}
         </section>
       </RequestState>
-      {selectedPod && <ResourceDetailsPanel type="Pod" name={selectedPod.name} status={selectedPod.status} onClose={() => setSelectedPod(null)} fields={[
-        { label: 'Namespace', value: selectedPod.namespace }, { label: 'Ready', value: selectedPod.ready ? 'Ready' : 'Not ready' },
-        { label: 'Restarts', value: selectedPod.restarts }, { label: 'Node', value: selectedPod.nodeName },
-        { label: 'Pod IP', value: selectedPod.podIP }, { label: 'Created', value: selectedPod.createdAt },
-        { label: 'Owner', value: selectedPod.ownerKind && selectedPod.ownerName ? `${selectedPod.ownerKind}: ${selectedPod.ownerName}` : null },
-        { label: 'Labels', value: Object.entries(selectedPod.labels ?? {}).map(([key, value]) => `${key}=${value}`).join(', ') },
-      ]} />}
+      {selectedPod && (
+          <PodInspectionPanel
+              namespace={selectedPod.namespace}
+              podName={selectedPod.name}
+              onClose={() => setSelectedPod(null)}
+          />
+      )}
     </div>
   )
 }

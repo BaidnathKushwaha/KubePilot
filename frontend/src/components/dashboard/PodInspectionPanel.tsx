@@ -15,6 +15,7 @@ import {
 import { clusterApi } from '../../services/api'
 import type { PodInspection } from '../../types/podInspection'
 import { StatusBadge } from './StatusBadge'
+import { PodLogsViewer } from './PodLogsViewer'
 
 interface PodInspectionPanelProps {
     namespace: string
@@ -159,6 +160,11 @@ export function PodInspectionPanel({ namespace, podName, onClose }: PodInspectio
 
                 {pod && (
                     <div className="pb-8">
+                        <PodLogsViewer
+                            namespace={pod.namespace}
+                            podName={pod.name}
+                            containers={pod.containers.map(container => container.name)}
+                        />
                         {error && (
                             <p className="mt-4 rounded-lg border border-amber-400/20 bg-amber-400/[0.04] p-3 text-xs text-amber-300">
                                 Refresh failed: {error}. Showing previously loaded data.

@@ -26,7 +26,46 @@ async function request<T>(path: string, signal?: AbortSignal): Promise<T> {
   return response.json() as Promise<T>
 }
 
+async function requestText(path: string, signal?: AbortSignal): Promise<string> {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    method: 'GET',
+    headers: { Accept: 'text/plain' },
+    signal,
+  })
+
+  if (!response.ok) {
+    const detail = await response.text().catch(() => '')
+    throw new Error(detail || `Request failed with status ${response.status}`)
+  }
+
+  return response.text()
+}
+
 export const clusterApi = {
+  getPodLogs: (
+      namespace: string,
+      podName: string,
+      container?: string,
+      tailLines: number = 200,
+      timestamps: boolean = true,
+      previous: boolean = false,
+      signal?: AbortSignal,
+  ) => {
+    const params = new URLSearchParams()
+
+    params.set('tailLines', String(tailLines))
+    params.set('timestamps', String(timestamps))
+    params.set('previous', String(previous))
+
+    if (container) {
+      params.set('container', container)
+    }
+
+    return requestText(
+        `/api/cluster/pods/${encodeURIComponent(namespace)}/${encodeURIComponent(podName)}/logs?${params.toString()}`,
+        signal,
+    )
+  },
   getNamespaces: (signal?: AbortSignal) =>
     request<NamespaceInfo[]>('/api/cluster/namespaces', signal),
   getOverview: (signal?: AbortSignal) =>
