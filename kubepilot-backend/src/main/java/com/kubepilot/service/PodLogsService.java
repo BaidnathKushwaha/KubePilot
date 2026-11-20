@@ -35,7 +35,7 @@ public class PodLogsService {
                 namespace
         );
 
-        request.container(container);
+        if (container != null && !container.isBlank()) request.container(container);
         request.follow(false);
         request.previous(Boolean.TRUE.equals(previous));
         request.tailLines(effectiveTailLines);
