@@ -46,4 +46,34 @@ export const clusterApi = {
     const query = namespace ? `?namespace=${encodeURIComponent(namespace)}` : ''
     return request<PodMetrics[]>(`/api/metrics/pods${query}`, signal)
   },
+  getDeployments: async (namespace?: string) => {
+    const query = namespace
+        ? `?namespace=${encodeURIComponent(namespace)}`
+        : ''
+
+    const response = await fetch(
+        `http://localhost:8080/api/cluster/deployments${query}`
+    )
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch deployments')
+    }
+
+    return response.json()
+  },
+  getStatefulSets: async (namespace?: string) => {
+    const query = namespace
+        ? `?namespace=${encodeURIComponent(namespace)}`
+        : ''
+
+    const response = await fetch(
+        `http://localhost:8080/api/cluster/statefulsets${query}`
+    )
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch StatefulSets')
+    }
+
+    return response.json()
+  },
 }

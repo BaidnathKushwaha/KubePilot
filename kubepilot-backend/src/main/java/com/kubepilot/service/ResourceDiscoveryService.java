@@ -23,12 +23,21 @@ public class ResourceDiscoveryService {
     private final CoreV1Api coreApi;
     private final NetworkingV1Api networkingApi;
     private final DiscoveryV1Api discoveryApi;
+    private final DeploymentHealthEvaluator deploymentHealthEvaluator;
+    private final StatefulSetHealthEvaluator statefulSetHealthEvaluator;
 
-    public ResourceDiscoveryService(ApiClient apiClient) {
+    public ResourceDiscoveryService(
+            ApiClient apiClient,
+            DeploymentHealthEvaluator deploymentHealthEvaluator,
+            StatefulSetHealthEvaluator statefulSetHealthEvaluator) {
+
         this.appsApi = new AppsV1Api(apiClient);
         this.coreApi = new CoreV1Api(apiClient);
         this.networkingApi = new NetworkingV1Api(apiClient);
         this.discoveryApi = new DiscoveryV1Api(apiClient);
+
+        this.deploymentHealthEvaluator = deploymentHealthEvaluator;
+        this.statefulSetHealthEvaluator = statefulSetHealthEvaluator;
     }
 
     // 1.7 DEPLOYMENTS
@@ -51,22 +60,42 @@ public class ResourceDiscoveryService {
         V1DeploymentSpec spec = deployment.getSpec();
         V1DeploymentStatus status = deployment.getStatus();
 
+        int desired = spec != null && spec.getReplicas() != null
+                ? spec.getReplicas()
+                : 0;
+
+        int ready = status != null && status.getReadyReplicas() != null
+                ? status.getReadyReplicas()
+                : 0;
+
+        int available = status != null && status.getAvailableReplicas() != null
+                ? status.getAvailableReplicas()
+                : 0;
+
+        int updated = status != null && status.getUpdatedReplicas() != null
+                ? status.getUpdatedReplicas()
+                : 0;
+
+        String health = deploymentHealthEvaluator.evaluate(deployment);
+
         return new DeploymentResponse(
                 metadata.getName(),
                 metadata.getNamespace(),
-                spec != null && spec.getReplicas() != null
-                        ? spec.getReplicas() : 0,
-                status != null && status.getReadyReplicas() != null
-                        ? status.getReadyReplicas() : 0,
-                status != null && status.getAvailableReplicas() != null
-                        ? status.getAvailableReplicas() : 0,
-                status != null && status.getUpdatedReplicas() != null
-                        ? status.getUpdatedReplicas() : 0,
+
+                desired,
+                ready,
+                available,
+                updated,
+
+                health,
+
                 spec != null && spec.getSelector() != null
                         ? safeMap(spec.getSelector().getMatchLabels())
                         : Map.of(),
+
                 metadata.getCreationTimestamp() != null
-                        ? metadata.getCreationTimestamp().toString() : null
+                        ? metadata.getCreationTimestamp().toString()
+                        : null
         );
     }
 
@@ -84,32 +113,46 @@ public class ResourceDiscoveryService {
                 .toList();
     }
 
-    private StatefulSetResponse mapStatefulSet(V1StatefulSet statefulSet) {
+    private StatefulSetResponse mapStatefulSet(
+            V1StatefulSet statefulSet) {
 
         V1ObjectMeta metadata = statefulSet.getMetadata();
         V1StatefulSetSpec spec = statefulSet.getSpec();
         V1StatefulSetStatus status = statefulSet.getStatus();
 
+        int desired = spec != null && spec.getReplicas() != null ? spec.getReplicas() : 0;
+
+        int current = status != null && status.getCurrentReplicas() != null
+                ? status.getCurrentReplicas() : 0;
+
+        int ready = status != null && status.getReadyReplicas() != null
+                ? status.getReadyReplicas() : 0;
+
+        String health = statefulSetHealthEvaluator.evaluate(statefulSet);
+        List<String> volumeClaimTemplates = new ArrayList<>();
+
+        if (spec != null && spec.getVolumeClaimTemplates() != null) {
+            volumeClaimTemplates = spec.getVolumeClaimTemplates()
+                    .stream()
+                    .map(claim -> claim.getMetadata() != null
+                            ? claim.getMetadata().getName()
+                            : null)
+                    .filter(Objects::nonNull)
+                    .toList();
+        }
         return new StatefulSetResponse(
                 metadata.getName(),
                 metadata.getNamespace(),
                 metadata.getUid(),
-
-                spec != null && spec.getReplicas() != null
-                        ? spec.getReplicas() : 0,
-
-                status != null && status.getCurrentReplicas() != null
-                        ? status.getCurrentReplicas() : 0,
-
-                status != null && status.getReadyReplicas() != null
-                        ? status.getReadyReplicas() : 0,
-
+                desired,
+                current,
+                ready,
                 spec != null ? spec.getServiceName() : null,
-
+                health,
                 spec != null && spec.getSelector() != null
                         ? safeMap(spec.getSelector().getMatchLabels())
                         : Map.of(),
-
+                volumeClaimTemplates,
                 metadata.getCreationTimestamp() != null
                         ? metadata.getCreationTimestamp().toString()
                         : null
