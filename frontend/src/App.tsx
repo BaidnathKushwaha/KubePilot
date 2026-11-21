@@ -7,6 +7,7 @@ import { MetricsPage } from './pages/MetricsPage'
 import { TopologyPage } from './pages/TopologyPage'
 import { ResourcePlaceholderPage } from './pages/ResourcePlaceholderPage'
 import DeploymentsPage from './pages/DeploymentsPage'
+import StatefulSetsPage from './pages/StatefulSetsPage'
 
 function App() {
   return (
@@ -18,6 +19,7 @@ function App() {
           <Route path="pods" element={<PodsPage />} />
           <Route path="metrics" element={<MetricsPage />} />
           <Route path="workloads" element={<DeploymentsPage />} />
+          <Route path="statefulsets" element={<StatefulSetsPage />} />
           <Route path="services" element={<ResourcePlaceholderPage title="Services & Networking" description="Explore Services, Ingress resources, and cluster networking relationships." eyebrow="Networking" />} />
           <Route path="topology" element={<TopologyPage />} />
           <Route path="events" element={<ResourcePlaceholderPage title="Events" description="Review Kubernetes events and investigate changes in cluster behavior." eyebrow="Observability" />} />

@@ -7,6 +7,7 @@ import {
   Gauge,
   Network,
   Server,
+  Database,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -40,6 +41,12 @@ export const navigationItems: NavigationItem[] = [
     label: 'Workloads',
     path: '/workloads',
     icon: ChartNoAxesCombined,
+    group: 'workspace',
+  },
+  {
+    label: 'StatefulSets',
+    path: '/statefulsets',
+    icon: Database,
     group: 'workspace',
   },
   {
