@@ -6,11 +6,12 @@ import io.kubernetes.client.openapi.ApiClient;
 import io.kubernetes.client.openapi.ApiException;
 import io.kubernetes.client.openapi.apis.AppsV1Api;
 import io.kubernetes.client.openapi.models.V1Deployment;
-import io.kubernetes.client.custom.V1Patch;
 
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
+import java.util.HashMap;
+import java.util.Map;
 
 @Service
 public class DeploymentOperationsService {
@@ -58,14 +59,12 @@ public class DeploymentOperationsService {
             );
         }
 
-        V1Deployment updatedDeployment = deployment;
-
-        updatedDeployment.getSpec().setReplicas(replicas);
+        deployment.getSpec().setReplicas(replicas);
 
         appsApi.replaceNamespacedDeployment(
                 name,
                 namespace,
-                updatedDeployment
+                deployment
         ).execute();
 
         return response(
@@ -88,30 +87,47 @@ public class DeploymentOperationsService {
         validateNamespace(namespace);
         validateDeploymentName(name);
 
-        appsApi.readNamespacedDeployment(name, namespace).execute();
+        V1Deployment deployment = appsApi
+                .readNamespacedDeployment(name, namespace)
+                .execute();
+
+        if (deployment.getSpec() == null
+                || deployment.getSpec().getTemplate() == null
+                || deployment.getSpec().getTemplate().getMetadata() == null) {
+
+            throw new IllegalStateException(
+                    "Deployment pod template metadata is unavailable"
+            );
+        }
 
         String restartTimestamp = Instant.now().toString();
 
-        String patchJson = """
-                {
-                  "spec": {
-                    "template": {
-                      "metadata": {
-                        "annotations": {
-                          "kubepilot.io/restartedAt": "%s"
-                        }
-                      }
-                    }
-                  }
-                }
-                """.formatted(restartTimestamp);
+        Map<String, String> annotations =
+                deployment.getSpec()
+                        .getTemplate()
+                        .getMetadata()
+                        .getAnnotations();
 
-        V1Patch patch = new V1Patch(patchJson);
+        if (annotations == null) {
+            annotations = new HashMap<>();
+        } else {
+            annotations = new HashMap<>(annotations);
+        }
 
-        appsApi.patchNamespacedDeployment(
+        annotations.put(
+                "kubepilot.io/restartedAt",
+                restartTimestamp
+        );
+
+        deployment.getSpec()
+                .getTemplate()
+                .getMetadata()
+                .setAnnotations(annotations);
+
+        appsApi.replaceNamespacedDeployment(
                 name,
                 namespace,
-                patch
+                deployment
         ).execute();
 
         return response(
