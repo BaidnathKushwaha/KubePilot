@@ -40,6 +40,15 @@ async function requestText(path: string, signal?: AbortSignal): Promise<string> 
 
   return response.text()
 }
+export interface DeploymentOperationResponse {
+  operation: string
+  name: string
+  namespace: string
+  status: string
+  message: string
+  desiredReplicas: number | null
+  timestamp: string
+}
 
 export const clusterApi = {
   getPodLogs: (
@@ -102,6 +111,50 @@ export const clusterApi = {
 
     if (!response.ok) {
       throw new Error('Failed to fetch deployments')
+    }
+
+    return response.json()
+  },
+  scaleDeployment: async (
+      namespace: string,
+      name: string,
+      replicas: number,
+  ): Promise<DeploymentOperationResponse> => {
+    const response = await fetch(
+        `${API_BASE_URL}/api/cluster/deployments/${encodeURIComponent(namespace)}/${encodeURIComponent(name)}/scale?replicas=${replicas}`,
+        {
+          method: 'POST',
+          headers: {
+            Accept: 'application/json',
+          },
+        },
+    )
+
+    if (!response.ok) {
+      const detail = await response.text().catch(() => '')
+      throw new Error(detail || `Scaling failed with status ${response.status}`)
+    }
+
+    return response.json()
+  },
+
+  restartDeployment: async (
+      namespace: string,
+      name: string,
+  ): Promise<DeploymentOperationResponse> => {
+    const response = await fetch(
+        `${API_BASE_URL}/api/cluster/deployments/${encodeURIComponent(namespace)}/${encodeURIComponent(name)}/restart`,
+        {
+          method: 'POST',
+          headers: {
+            Accept: 'application/json',
+          },
+        },
+    )
+
+    if (!response.ok) {
+      const detail = await response.text().catch(() => '')
+      throw new Error(detail || `Restart failed with status ${response.status}`)
     }
 
     return response.json()

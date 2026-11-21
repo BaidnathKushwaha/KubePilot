@@ -4,7 +4,8 @@ import {
     Workflow,
     Search,
 } from 'lucide-react'
-
+import { Settings2 } from 'lucide-react'
+import { DeploymentOperationsPanel } from '../components/dashboard/DeploymentOperationsPanel'
 import { clusterApi } from '../services/api'
 import { useNamespace } from '../context/NamespaceContext'
 import type { DeploymentInfo } from '../types/workload'
@@ -33,7 +34,7 @@ function healthStyle(health: DeploymentInfo['health']) {
 function DeploymentsPage() {
 
     const { namespace } = useNamespace()
-
+    const [selectedDeployment, setSelectedDeployment] = useState<DeploymentInfo | null>(null)
     const [deployments, setDeployments] =
         useState<DeploymentInfo[]>([])
 
@@ -276,6 +277,7 @@ function DeploymentsPage() {
                                 <th className="px-5 py-4">Availability</th>
 
                                 <th className="px-5 py-4">Health</th>
+                                <th className="px-5 py-4">Operations</th>
 
                             </tr>
 
@@ -380,6 +382,17 @@ function DeploymentsPage() {
                       </span>
 
                                     </td>
+                                    <td className="px-5 py-4">
+                                        <button
+                                            type="button"
+                                            onClick={() => setSelectedDeployment(deployment)}
+                                            title="Manage deployment"
+                                            className="inline-flex items-center gap-2 rounded-lg border border-cyan-400/20 bg-cyan-400/[0.04] px-3 py-2 text-xs text-cyan-300 transition hover:bg-cyan-400/[0.1]"
+                                        >
+                                            <Settings2 size={14} />
+                                            Manage
+                                        </button>
+                                    </td>
 
                                 </tr>
 
@@ -395,6 +408,15 @@ function DeploymentsPage() {
 
             )}
 
+            {selectedDeployment && (
+                <DeploymentOperationsPanel
+                    deployment={selectedDeployment}
+                    onClose={() => setSelectedDeployment(null)}
+                    onOperationComplete={() => {
+                        void loadDeployments()
+                    }}
+                />
+            )}
         </div>
 
     )
