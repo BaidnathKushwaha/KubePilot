@@ -61,19 +61,25 @@ export function PodLogsViewer({
         }
     }
 
+    // Reset state when the selected pod changes
     useEffect(() => {
         setLogs('')
         setError(null)
         setContainer('')
         setPrevious(false)
         setSearch('')
+        setTailLines(200)
+        setTimestamps(true)
+    }, [namespace, podName])
 
+// Retrieve logs whenever log retrieval settings change
+    useEffect(() => {
         const controller = new AbortController()
 
         void loadLogs(controller.signal)
 
         return () => controller.abort()
-    }, [namespace, podName])
+    }, [namespace, podName, container, tailLines, timestamps, previous])
 
     const filteredLogs = useMemo(() => {
         if (!search.trim()) return logs
