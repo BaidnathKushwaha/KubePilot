@@ -3,10 +3,12 @@ import {
     RefreshCw,
     Database,
     Search,
+    Settings2,
 } from 'lucide-react'
 
 import { clusterApi } from '../services/api'
 import { useNamespace } from '../context/NamespaceContext'
+import { StatefulSetOperationsPanel } from '../components/dashboard/StatefulSetOperationsPanel'
 
 import type { StatefulSetInfo } from '../types/workload'
 
@@ -37,6 +39,9 @@ function StatefulSetsPage() {
 
     const [statefulSets, setStatefulSets] =
         useState<StatefulSetInfo[]>([])
+
+    const [selectedStatefulSet, setSelectedStatefulSet] =
+        useState<StatefulSetInfo | null>(null)
 
     const [loading, setLoading] = useState(true)
 
@@ -280,6 +285,8 @@ function StatefulSetsPage() {
 
                                 <th className="px-5 py-4">Health</th>
 
+                                <th className="px-5 py-4">Operations</th>
+
                             </tr>
 
                             </thead>
@@ -406,6 +413,18 @@ function StatefulSetsPage() {
 
                                     </td>
 
+                                    <td className="px-5 py-4">
+                                        <button
+                                            type="button"
+                                            onClick={() => setSelectedStatefulSet(statefulSet)}
+                                            title="Manage StatefulSet"
+                                            className="inline-flex items-center gap-2 rounded-lg border border-cyan-400/20 bg-cyan-400/[0.04] px-3 py-2 text-xs text-cyan-300 transition hover:bg-cyan-400/[0.1]"
+                                        >
+                                            <Settings2 size={14} />
+                                            Manage
+                                        </button>
+                                    </td>
+
                                 </tr>
 
                             ))}
@@ -418,6 +437,16 @@ function StatefulSetsPage() {
 
                 </div>
 
+            )}
+
+            {selectedStatefulSet && (
+                <StatefulSetOperationsPanel
+                    statefulSet={selectedStatefulSet}
+                    onClose={() => setSelectedStatefulSet(null)}
+                    onOperationComplete={() => {
+                        void loadStatefulSets()
+                    }}
+                />
             )}
 
         </div>

@@ -11,6 +11,7 @@ export interface StatefulSetInfo {
     volumeClaimTemplates: string[]
     createdAt: string | null
 }
+
 export interface DeploymentInfo {
     name: string
     namespace: string
@@ -25,18 +26,60 @@ export interface DeploymentInfo {
     createdAt: string | null
 }
 
-export interface StatefulSetInfo {
+export interface WorkloadOperationResponse {
+    operation: string
+    resourceKind: string
     name: string
     namespace: string
-    uid: string
+    status: string
+    message: string
+    desiredReplicas: number | null
+    targetRevision: number | null
+    ownerKind: string | null
+    ownerName: string | null
+    timestamp: string
+}
 
+export interface RolloutConditionItem {
+    type: string
+    status: string
+    reason: string | null
+    message: string | null
+    lastUpdateTime: string | null
+}
+
+export interface RolloutStatusResponse {
+    name: string
+    namespace: string
+    phase: 'PROGRESSING' | 'COMPLETE' | 'DEGRADED' | 'SCALED_DOWN' | 'STALLED' | string
+    summary: string
     desiredReplicas: number
-    currentReplicas: number
+    updatedReplicas: number
     readyReplicas: number
+    availableReplicas: number
+    unavailableReplicas: number
+    observedGeneration: number
+    generation: number | null
+    progressDeadlineSeconds: number | null
+    currentRevision: string | null
+    conditions: RolloutConditionItem[]
+}
 
-    serviceName: string | null
-
-    selector: Record<string, string>
-
+export interface RolloutRevisionItem {
+    revision: number
+    replicaSetName: string
+    replicas: number
+    readyReplicas: number
+    current: boolean
+    rollbackCandidate: boolean
     createdAt: string | null
+    images: string[]
+    podLabels: Record<string, string>
+}
+
+export interface RolloutHistoryResponse {
+    deploymentName: string
+    namespace: string
+    currentRevision: string | null
+    revisions: RolloutRevisionItem[]
 }
