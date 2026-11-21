@@ -1,5 +1,6 @@
 package com.kubepilot.service;
 
+import io.kubernetes.client.openapi.ApiClient;
 import io.kubernetes.client.openapi.ApiException;
 import io.kubernetes.client.openapi.apis.CoreV1Api;
 import org.springframework.stereotype.Service;
@@ -9,8 +10,8 @@ public class PodLogsService {
 
     private final CoreV1Api coreV1Api;
 
-    public PodLogsService(CoreV1Api coreV1Api) {
-        this.coreV1Api = coreV1Api;
+    public PodLogsService(ApiClient apiClient) {
+        this.coreV1Api = new CoreV1Api(apiClient);
     }
 
     public String getPodLogs(
@@ -35,7 +36,7 @@ public class PodLogsService {
                 namespace
         );
 
-        if (container != null && !container.isBlank()) request.container(container);
+        request.container(container);
         request.follow(false);
         request.previous(Boolean.TRUE.equals(previous));
         request.tailLines(effectiveTailLines);

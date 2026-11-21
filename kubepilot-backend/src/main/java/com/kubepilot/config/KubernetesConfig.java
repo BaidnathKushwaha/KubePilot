@@ -21,8 +21,4 @@ public class KubernetesConfig {
 
         return client;
     }
-    @Bean
-    public CoreV1Api coreV1Api(ApiClient kubernetesApiClient) {
-        return new CoreV1Api(kubernetesApiClient);
-    }
 }
