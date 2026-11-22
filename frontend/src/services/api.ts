@@ -5,7 +5,8 @@ import type {
   KubernetesPod,
   NodeMetrics,
   PodMetrics,
-  NamespaceInfo,
+  NamespaceInfo, NodeDetailResponse, NodeOperationResponse, OperationAuditRecord, NamespaceOverviewItem,
+  NamespaceDetailResponse, NodeDrainPrecheckResponse, NodeDrainResponse,
 } from '../types/cluster'
 import type { PodInspection } from '../types/podInspection'
 import type {
@@ -127,11 +128,95 @@ export const clusterApi = {
     const query = namespace ? `?namespace=${encodeURIComponent(namespace)}` : ''
     return request<PodMetrics[]>(`/api/metrics/pods${query}`, signal)
   },
+  getNodeDetails: (nodeName: string, signal?: AbortSignal) =>
+      request<NodeDetailResponse>(
+          `/api/cluster/nodes/${encodeURIComponent(nodeName)}/details`,
+          signal,
+      ),
   getDeployments: async (namespace?: string): Promise<DeploymentInfo[]> => {
     const query = namespace
         ? `?namespace=${encodeURIComponent(namespace)}`
         : ''
     return request<DeploymentInfo[]>(`/api/cluster/deployments${query}`)
+  },
+  cordonNode: async (nodeName: string): Promise<NodeOperationResponse> => {
+    const response = await fetch(
+        `${API_BASE_URL}/api/cluster/nodes/${encodeURIComponent(nodeName)}/cordon`,
+        {
+          method: 'POST',
+          headers: { Accept: 'application/json' },
+        },
+    )
+    if (!response.ok) {
+      const detail = await response.text().catch(() => '')
+      throw new Error(detail || `Cordon failed with status ${response.status}`)
+    }
+    return response.json() as Promise<NodeOperationResponse>
+  },
+  uncordonNode: async (nodeName: string): Promise<NodeOperationResponse> => {
+    const response = await fetch(
+        `${API_BASE_URL}/api/cluster/nodes/${encodeURIComponent(nodeName)}/uncordon`,
+        {
+          method: 'POST',
+          headers: { Accept: 'application/json' },
+        },
+    )
+    if (!response.ok) {
+      const detail = await response.text().catch(() => '')
+      throw new Error(detail || `Uncordon failed with status ${response.status}`)
+    }
+    return response.json() as Promise<NodeOperationResponse>
+  },
+  getAuditRecords: (targetKind?: string, targetName?: string, signal?: AbortSignal) => {
+    const params = new URLSearchParams()
+    if (targetKind) params.set('targetKind', targetKind)
+    if (targetName) params.set('targetName', targetName)
+    const query = params.toString() ? `?${params.toString()}` : ''
+    return request<OperationAuditRecord[]>(`/api/audit${query}`, signal)
+  },
+  precheckNodeDrain: (nodeName: string, signal?: AbortSignal) =>
+      request<NodeDrainPrecheckResponse>(
+          `/api/cluster/nodes/${encodeURIComponent(nodeName)}/drain/precheck`,
+          signal,
+      ),
+  drainNode: async (nodeName: string): Promise<NodeDrainResponse> => {
+    const response = await fetch(
+        `${API_BASE_URL}/api/cluster/nodes/${encodeURIComponent(nodeName)}/drain`,
+        {
+          method: 'POST',
+          headers: { Accept: 'application/json' },
+        },
+    )
+    if (!response.ok) {
+      const detail = await response.text().catch(() => '')
+      throw new Error(detail || `Drain failed with status ${response.status}`)
+    }
+    return response.json() as Promise<NodeDrainResponse>
+  },
+  getNamespaceOverview: (signal?: AbortSignal) =>
+      request<NamespaceOverviewItem[]>('/api/cluster/namespaces/overview', signal),
+  getNamespaceDetails: (namespace: string, signal?: AbortSignal) =>
+      request<NamespaceDetailResponse>(
+          `/api/cluster/namespaces/${encodeURIComponent(namespace)}/details`,
+          signal,
+      ),
+  createNamespace: async (
+      name: string,
+      labels?: Record<string, string>,
+  ): Promise<WorkloadOperationResponse> => {
+    const response = await fetch(`${API_BASE_URL}/api/cluster/namespaces`, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ name, labels: labels ?? {} }),
+    })
+    if (!response.ok) {
+      const detail = await response.text().catch(() => '')
+      throw new Error(detail || `Namespace creation failed with status ${response.status}`)
+    }
+    return response.json() as Promise<WorkloadOperationResponse>
   },
   scaleDeployment: async (
       namespace: string,

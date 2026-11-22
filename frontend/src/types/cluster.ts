@@ -15,12 +15,186 @@ export interface ClusterOverview {
   metricsTimestamp: string | null
 }
 
+export interface PodDrainCandidate {
+  name: string
+  namespace: string
+  phase: string
+  ownerKind: string | null
+  ownerName: string | null
+  category: string
+  daemonSet: boolean
+  usesLocalStorage: boolean
+  localStorageVolumes: string[]
+  blockedByPdb: boolean
+  blockingPdbName: string | null
+  evictable: boolean
+  note: string
+}
+
+export interface NodeDrainPrecheckResponse {
+  nodeName: string
+  alreadyUnschedulable: boolean
+  totalScheduledPods: number
+  evictablePodCount: number
+  daemonSetPodCount: number
+  unmanagedPodCount: number
+  localStoragePodCount: number
+  pdbBlockedPodCount: number
+  hasBlockers: boolean
+  blockers: string[]
+  warnings: string[]
+  pods: PodDrainCandidate[]
+}
+
+export interface PodEvictionFailure {
+  name: string
+  namespace: string
+  reason: string
+  message: string
+}
+
+export interface NodeDrainResponse {
+  nodeName: string
+  status: 'COMPLETED' | 'PARTIAL_FAILURE' | 'BLOCKED' | string
+  cordoned: boolean
+  readyForMaintenance: boolean
+  summary: string
+  evictedPods: string[]
+  skippedDaemonSetPods: string[]
+  failedOrBlockedPods: PodEvictionFailure[]
+  remainingPods: string[]
+  auditId: string
+  timestamp: string
+}
+
+export interface QuotaSummary {
+  name: string
+  hard: Record<string, string>
+  used: Record<string, string>
+}
+
+export interface NamespaceOverviewItem {
+  name: string
+  status: string
+  createdAt: string | null
+  podCount: number
+  deploymentCount: number
+  serviceCount: number
+  resourceQuotas: QuotaSummary[]
+}
+
+export interface DaemonSetSummary {
+  name: string
+  desiredNumberScheduled: number
+  currentNumberScheduled: number
+  numberReady: number
+}
+
+export interface ConfigMapSummary {
+  name: string
+  dataKeyCount: number
+  createdAt: string | null
+}
+
+export interface SecretMetadataSummary {
+  name: string
+  type: string | null
+  dataKeyCount: number
+  createdAt: string | null
+}
+
+export interface LimitRangeSummary {
+  name: string
+  itemCount: number
+}
+
+export interface NamespaceDetailResponse {
+  name: string
+  status: string
+  createdAt: string | null
+  labels: Record<string, string>
+  pods: KubernetesPod[]
+  deployments: Array<{ name: string; namespace: string; desiredReplicas: number; readyReplicas: number; health: string }>
+  statefulSets: Array<{ name: string; namespace: string; desiredReplicas: number; readyReplicas: number; health: string }>
+  daemonSets: DaemonSetSummary[]
+  services: Array<{ name: string; namespace: string; type: string | null; clusterIP: string | null }>
+  configMaps: ConfigMapSummary[]
+  secretsMetadataOnly: SecretMetadataSummary[]
+  resourceQuotas: QuotaSummary[]
+  limitRanges: LimitRangeSummary[]
+  events: NodeEventInfo[]
+}
+
+export interface NodeConditionInfo {
+  type: string
+  status: string
+  reason: string | null
+  message: string | null
+  lastTransitionTime: string | null
+}
+
+export interface NodeTaintInfo {
+  key: string
+  value: string | null
+  effect: string | null
+}
+
 export interface KubernetesNode {
   name: string
   status: string
   kubernetesVersion: string
   architecture: string
   capacity: Record<string, string>
+  internalIP?: string | null
+  operatingSystem?: string | null
+  osImage?: string | null
+  containerRuntime?: string | null
+  unschedulable?: boolean
+  podCapacity?: string | null
+  allocatable?: Record<string, string>
+  conditions?: NodeConditionInfo[]
+  taints?: NodeTaintInfo[]
+  labels?: Record<string, string>
+}
+
+export interface NodeEventInfo {
+  reason: string | null
+  type: string | null
+  message: string | null
+  sourceComponent: string | null
+  eventTime: string | null
+}
+
+export interface NodeDetailResponse {
+  node: KubernetesNode
+  schedulingStatus: 'SCHEDULABLE' | 'UNSCHEDULABLE' | string
+  cpuUsageMilliCores: number | null
+  memoryUsageBytes: number | null
+  metricsTimestamp: string | null
+  scheduledPods: KubernetesPod[]
+  events: NodeEventInfo[]
+}
+
+export interface NodeOperationResponse {
+  operation: 'CORDON' | 'UNCORDON' | string
+  nodeName: string
+  status: 'ACCEPTED' | 'NO_CHANGE' | string
+  schedulingStatus: 'SCHEDULABLE' | 'UNSCHEDULABLE' | string
+  message: string
+  auditId: string
+  timestamp: string
+}
+
+export interface OperationAuditRecord {
+  id: string
+  operation: string
+  targetKind: string
+  targetName: string
+  namespace: string | null
+  status: string
+  details: string
+  outcomeMessage: string
+  timestamp: string
 }
 
 export interface KubernetesPod {
@@ -61,7 +235,6 @@ export interface ContainerMetrics {
   cpuMilliCores: number
   memoryBytes: number
 }
-
 
 export interface TopologyNode {
   id: string

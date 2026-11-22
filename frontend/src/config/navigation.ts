@@ -8,7 +8,7 @@ import {
   Network,
   Server,
   Database,
-  type LucideIcon,
+  type LucideIcon, Layers,
 } from 'lucide-react'
 
 export interface NavigationItem {
@@ -73,6 +73,7 @@ export const navigationItems: NavigationItem[] = [
     icon: Activity,
     group: 'observe',
   },
+  { label: 'Namespaces', path: '/namespaces', icon: Layers, group: 'workspace' },
 ]
 
 export function getPageTitle(pathname: string): string {
