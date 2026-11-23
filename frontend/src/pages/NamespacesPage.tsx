@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { FolderPlus, Layers, RefreshCw, Search } from 'lucide-react'
+import { FolderPlus, Layers, RefreshCw, Search, Trash2 } from 'lucide-react'
 import { RequestState } from '../components/dashboard/RequestState'
 import { StatusBadge } from '../components/dashboard/StatusBadge'
 import { NamespaceCreateModal } from '../components/dashboard/NamespaceCreateModal'
 import { NamespaceDetailsPanel } from '../components/dashboard/NamespaceDetailsPanel'
+import { NamespaceDeleteModal } from '../components/dashboard/NamespaceDeleteModal'
 import { clusterApi } from '../services/api'
 import { useNamespace } from '../context/NamespaceContext'
 import type { NamespaceOverviewItem } from '../types/cluster'
@@ -14,8 +15,9 @@ export function NamespacesPage() {
     const [error, setError] = useState<string | null>(null)
     const [search, setSearch] = useState('')
     const [selectedNs, setSelectedNs] = useState<string | null>(null)
+    const [deleteTargetNs, setDeleteTargetNs] = useState<string | null>(null)
     const [createOpen, setCreateOpen] = useState(false)
-    const { retryNamespaces } = useNamespace()
+    const { namespace, setNamespace, retryNamespaces } = useNamespace()
 
     const loadNamespaces = useCallback(async (signal?: AbortSignal) => {
         setLoading(true)
@@ -54,7 +56,7 @@ export function NamespacesPage() {
                         Namespaces
                     </h1>
                     <p className="mt-2 text-sm text-slate-400">
-                        Inspect namespace workloads, resource quotas, and create new isolated namespaces.
+                        Inspect namespace workloads, resource quotas, and manage namespace lifecycle safely.
                     </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -96,7 +98,7 @@ export function NamespacesPage() {
                     </div>
 
                     <div className="overflow-x-auto">
-                        <table className="w-full min-w-[820px] text-left text-xs">
+                        <table className="w-full min-w-[900px] text-left text-xs">
                             <thead className="bg-white/[0.025] text-[10px] uppercase tracking-wider text-slate-500">
                             <tr>
                                 <th className="px-5 py-3 font-semibold">Namespace</th>
@@ -105,6 +107,7 @@ export function NamespacesPage() {
                                 <th className="px-5 py-3 font-semibold">Deployments</th>
                                 <th className="px-5 py-3 font-semibold">Services</th>
                                 <th className="px-5 py-3 font-semibold">Quotas</th>
+                                <th className="px-5 py-3 font-semibold">Actions</th>
                             </tr>
                             </thead>
                             <tbody className="divide-y divide-white/[0.055]">
@@ -116,6 +119,16 @@ export function NamespacesPage() {
                                     <td className="px-5 py-4 tabular-nums text-slate-300">{ns.deploymentCount}</td>
                                     <td className="px-5 py-4 tabular-nums text-slate-300">{ns.serviceCount}</td>
                                     <td className="px-5 py-4 text-slate-400">{ns.resourceQuotas.length > 0 ? `${ns.resourceQuotas.length} quota(s)` : 'None'}</td>
+                                    <td className="px-5 py-4" onClick={(e) => e.stopPropagation()}>
+                                        <button
+                                            type="button"
+                                            onClick={() => setDeleteTargetNs(ns.name)}
+                                            title={`Delete namespace ${ns.name}`}
+                                            className="inline-flex items-center gap-1.5 rounded-lg border border-rose-400/20 bg-rose-400/[0.05] px-2.5 py-1.5 text-[11px] text-rose-300 transition hover:bg-rose-400/[0.12]"
+                                        >
+                                            <Trash2 size={13} /> Delete
+                                        </button>
+                                    </td>
                                 </tr>
                             ))}
                             </tbody>
@@ -126,6 +139,20 @@ export function NamespacesPage() {
 
             {selectedNs && (
                 <NamespaceDetailsPanel namespaceName={selectedNs} onClose={() => setSelectedNs(null)} />
+            )}
+
+            {deleteTargetNs && (
+                <NamespaceDeleteModal
+                    namespaceName={deleteTargetNs}
+                    onClose={() => setDeleteTargetNs(null)}
+                    onDeleted={() => {
+                        if (namespace === deleteTargetNs) {
+                            setNamespace('')
+                        }
+                        void loadNamespaces()
+                        retryNamespaces()
+                    }}
+                />
             )}
 
             {createOpen && (

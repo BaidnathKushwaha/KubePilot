@@ -91,6 +91,71 @@ public class NamespaceManagementService {
         return items;
     }
 
+    public WorkloadOperationResponse deleteNamespace(String namespace) throws ApiException {
+        String nsName = namespace != null ? namespace.trim() : null;
+        if (nsName == null || nsName.isBlank()) {
+            auditService.record(
+                    "DELETE_NAMESPACE",
+                    "Namespace",
+                    String.valueOf(namespace),
+                    namespace,
+                    "REJECTED",
+                    "Validate namespace name",
+                    "Namespace name must not be empty"
+            );
+            throw new IllegalArgumentException("Namespace name must not be empty");
+        }
+
+        try {
+            V1Namespace existing = coreV1Api.readNamespace(nsName).execute();
+            String currentPhase = existing.getStatus() != null && existing.getStatus().getPhase() != null
+                    ? existing.getStatus().getPhase()
+                    : "Active";
+
+            coreV1Api.deleteNamespace(nsName).execute();
+
+            String status = "Terminating".equalsIgnoreCase(currentPhase) ? "TERMINATING" : "ACCEPTED";
+            String message = "Namespace \"" + nsName + "\" deletion request accepted (previous phase: "
+                    + currentPhase + "). Associated namespaced resources will be garbage-collected asynchronously.";
+
+            OperationAuditRecord audit = auditService.record(
+                    "DELETE_NAMESPACE",
+                    "Namespace",
+                    nsName,
+                    nsName,
+                    status,
+                    "previousPhase=" + currentPhase,
+                    message
+            );
+
+            return new WorkloadOperationResponse(
+                    "DELETE_NAMESPACE",
+                    "Namespace",
+                    nsName,
+                    nsName,
+                    status,
+                    message,
+                    null,
+                    null,
+                    null,
+                    null,
+                    audit.timestamp()
+            );
+        } catch (ApiException e) {
+            String auditStatus = e.getCode() == 404 ? "NOT_FOUND" : "FAILED";
+            auditService.record(
+                    "DELETE_NAMESPACE",
+                    "Namespace",
+                    nsName,
+                    nsName,
+                    auditStatus,
+                    "deleteNamespace",
+                    "Kubernetes API error (" + e.getCode() + "): " + e.getMessage()
+            );
+            throw e;
+        }
+    }
+
     public NamespaceDetailResponse getNamespaceDetails(String namespace) throws ApiException {
         validateNamespaceName(namespace, "NS_INSPECT");
 

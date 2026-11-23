@@ -208,3 +208,15 @@ export interface NamespaceInfo {
   status: string
   createdAt: string | null
 }
+export interface ClusterEventResponse {
+  uid: string | null
+  type: string
+  reason: string | null
+  message: string | null
+  count: number
+  involvedKind: string | null
+  involvedName: string | null
+  involvedNamespace: string | null
+  sourceComponent: string | null
+  timestamp: string | null
+}

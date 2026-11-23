@@ -9,12 +9,7 @@ import com.kubepilot.service.NamespaceDiscoveryService;
 import com.kubepilot.service.NamespaceManagementService;
 import io.kubernetes.client.openapi.ApiException;
 import org.springframework.http.HttpStatus;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
@@ -68,6 +63,27 @@ public class NamespaceController {
         } catch (ApiException exception) {
             HttpStatus status = exception.getCode() == 404 ? HttpStatus.NOT_FOUND : HttpStatus.BAD_GATEWAY;
             throw new ResponseStatusException(status, "Unable to retrieve namespace details for " + name, exception);
+        }
+    }
+
+    @DeleteMapping("/{name}")
+    public WorkloadOperationResponse deleteNamespace(@PathVariable String name) {
+        try {
+            return namespaceManagementService.deleteNamespace(name);
+        } catch (IllegalArgumentException exception) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, exception.getMessage(), exception);
+        } catch (ApiException exception) {
+            HttpStatus status = switch (exception.getCode()) {
+                case 404 -> HttpStatus.NOT_FOUND;
+                case 403 -> HttpStatus.FORBIDDEN;
+                case 409 -> HttpStatus.CONFLICT;
+                default -> HttpStatus.BAD_GATEWAY;
+            };
+            throw new ResponseStatusException(
+                    status,
+                    "Unable to delete namespace \"" + name + "\" through Kubernetes API",
+                    exception
+            );
         }
     }
 

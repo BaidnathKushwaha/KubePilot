@@ -10,7 +10,7 @@ import type {
   NodeOperationResponse,
   OperationAuditRecord,
   NamespaceOverviewItem,
-  NamespaceDetailResponse,
+  NamespaceDetailResponse, ClusterEventResponse,
 } from '../types/cluster'
 import type { PodInspection } from '../types/podInspection'
 import type {
@@ -97,6 +97,37 @@ export const clusterApi = {
   getPods: (namespace?: string, signal?: AbortSignal) => {
     const query = namespace ? `?namespace=${encodeURIComponent(namespace)}` : ''
     return request<KubernetesPod[]>(`/api/cluster/pods${query}`, signal)
+  },
+  deleteNamespace: async (name: string): Promise<WorkloadOperationResponse> => {
+    const response = await fetch(
+        `${API_BASE_URL}/api/cluster/namespaces/${encodeURIComponent(name)}`,
+        {
+          method: 'DELETE',
+          headers: { Accept: 'application/json' },
+        },
+    )
+    if (!response.ok) {
+      const detail = await response.text().catch(() => '')
+      throw new Error(detail || `Namespace deletion failed with status ${response.status}`)
+    }
+    return response.json() as Promise<WorkloadOperationResponse>
+  },
+  getClusterEvents: (
+      params?: {
+        namespace?: string
+        kind?: string
+        type?: string
+        search?: string
+      },
+      signal?: AbortSignal,
+  ) => {
+    const searchParams = new URLSearchParams()
+    if (params?.namespace) searchParams.set('namespace', params.namespace)
+    if (params?.kind) searchParams.set('kind', params.kind)
+    if (params?.type) searchParams.set('type', params.type)
+    if (params?.search) searchParams.set('search', params.search)
+    const query = searchParams.toString() ? `?${searchParams.toString()}` : ''
+    return request<ClusterEventResponse[]>(`/api/cluster/events${query}`, signal)
   },
   deletePod: async (
       namespace: string,
