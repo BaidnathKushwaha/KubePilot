@@ -230,6 +230,8 @@ public class NodeOperationsService {
 
             try {
                 V1Eviction eviction = new V1Eviction()
+                        .apiVersion("policy/v1")
+                        .kind("Eviction")
                         .metadata(new V1ObjectMeta()
                                 .name(candidate.name())
                                 .namespace(candidate.namespace()));
