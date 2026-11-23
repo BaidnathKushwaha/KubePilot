@@ -66,7 +66,7 @@ public class NamespaceController {
         }
     }
 
-    @DeleteMapping("/{name}")
+    @DeleteMapping("/namespaces/{name}")
     public WorkloadOperationResponse deleteNamespace(@PathVariable String name) {
         try {
             return namespaceManagementService.deleteNamespace(name);
