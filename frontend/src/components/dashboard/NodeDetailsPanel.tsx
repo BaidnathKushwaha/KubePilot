@@ -9,7 +9,6 @@ import {
     Lock,
     RefreshCw,
     Server,
-    ShieldAlert,
     Tag,
     Unlock,
     X,
@@ -23,7 +22,6 @@ interface NodeDetailsPanelProps {
     initialPods?: KubernetesPod[]
     onClose: () => void
     onNodeUpdated?: () => void
-    onOpenDrain?: () => void
 }
 
 function formatBytes(value: number | null | undefined): string {
@@ -44,7 +42,6 @@ export function NodeDetailsPanel({
                                      initialPods = [],
                                      onClose,
                                      onNodeUpdated,
-                                     onOpenDrain,
                                  }: NodeDetailsPanelProps) {
     const [details, setDetails] = useState<NodeDetailResponse | null>(null)
     const [loading, setLoading] = useState(true)
@@ -195,7 +192,7 @@ export function NodeDetailsPanel({
 
                 {node && (
                     <div className="space-y-6 pb-8 pt-4">
-                        {/* Scheduling & Maintenance Operations */}
+                        {/* Scheduling Operations */}
                         <section className="rounded-xl border border-white/[0.07] bg-[#0d1523] p-4">
                             <div className="flex flex-wrap items-center justify-between gap-2">
                                 <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-slate-300">
@@ -204,7 +201,7 @@ export function NodeDetailsPanel({
                                     ) : (
                                         <Unlock size={14} className="text-emerald-300" />
                                     )}
-                                    Node Scheduling & Maintenance
+                                    Node Scheduling Control
                                 </div>
                                 <span className="text-[11px] text-slate-400">
                                     {isUnschedulable
@@ -216,7 +213,6 @@ export function NodeDetailsPanel({
                             <p className="mt-2 text-xs leading-5 text-slate-500">
                                 Cordoning marks the node unschedulable while preserving currently running pods.
                                 Uncordoning restores scheduling eligibility without relocating existing pods.
-                                Draining cordons the node and evicts controller-managed pods safely.
                             </p>
 
                             <div className="mt-4 flex flex-wrap gap-3">
@@ -239,18 +235,6 @@ export function NodeDetailsPanel({
                                     <Unlock size={14} />
                                     {actionBusy && isUnschedulable ? 'Uncordoning...' : 'Uncordon Node'}
                                 </button>
-
-                                {onOpenDrain && (
-                                    <button
-                                        type="button"
-                                        onClick={onOpenDrain}
-                                        disabled={actionBusy}
-                                        className="inline-flex items-center gap-2 rounded-lg border border-rose-400/25 bg-rose-400/10 px-3.5 py-2 text-xs font-medium text-rose-200 transition hover:bg-rose-400/20 disabled:opacity-40"
-                                    >
-                                        <ShieldAlert size={14} />
-                                        Drain Node
-                                    </button>
-                                )}
                             </div>
 
                             {actionResult && (

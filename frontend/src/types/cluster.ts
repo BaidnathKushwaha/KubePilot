@@ -15,58 +15,6 @@ export interface ClusterOverview {
   metricsTimestamp: string | null
 }
 
-export interface PodDrainCandidate {
-  name: string
-  namespace: string
-  phase: string
-  ownerKind: string | null
-  ownerName: string | null
-  category: string
-  daemonSet: boolean
-  usesLocalStorage: boolean
-  localStorageVolumes: string[]
-  blockedByPdb: boolean
-  blockingPdbName: string | null
-  evictable: boolean
-  note: string
-}
-
-export interface NodeDrainPrecheckResponse {
-  nodeName: string
-  alreadyUnschedulable: boolean
-  totalScheduledPods: number
-  evictablePodCount: number
-  daemonSetPodCount: number
-  unmanagedPodCount: number
-  localStoragePodCount: number
-  pdbBlockedPodCount: number
-  hasBlockers: boolean
-  blockers: string[]
-  warnings: string[]
-  pods: PodDrainCandidate[]
-}
-
-export interface PodEvictionFailure {
-  name: string
-  namespace: string
-  reason: string
-  message: string
-}
-
-export interface NodeDrainResponse {
-  nodeName: string
-  status: 'COMPLETED' | 'PARTIAL_FAILURE' | 'BLOCKED' | string
-  cordoned: boolean
-  readyForMaintenance: boolean
-  summary: string
-  evictedPods: string[]
-  skippedDaemonSetPods: string[]
-  failedOrBlockedPods: PodEvictionFailure[]
-  remainingPods: string[]
-  auditId: string
-  timestamp: string
-}
-
 export interface QuotaSummary {
   name: string
   hard: Record<string, string>

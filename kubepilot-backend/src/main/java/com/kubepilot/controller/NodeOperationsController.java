@@ -1,12 +1,13 @@
 package com.kubepilot.controller;
 
-import com.kubepilot.dto.NodeDrainPrecheckResponse;
-import com.kubepilot.dto.NodeDrainResponse;
 import com.kubepilot.dto.NodeOperationResponse;
 import com.kubepilot.service.NodeOperationsService;
 import io.kubernetes.client.openapi.ApiException;
 import org.springframework.http.HttpStatus;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
 @RestController
@@ -38,28 +39,6 @@ public class NodeOperationsController {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage(), e);
         } catch (ApiException e) {
             throw mapApiException("uncordon node", name, e);
-        }
-    }
-
-    @GetMapping("/{name}/drain/precheck")
-    public NodeDrainPrecheckResponse precheckDrain(@PathVariable String name) {
-        try {
-            return nodeOperationsService.precheckDrain(name);
-        } catch (IllegalArgumentException e) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage(), e);
-        } catch (ApiException e) {
-            throw mapApiException("drain precheck for node", name, e);
-        }
-    }
-
-    @PostMapping("/{name}/drain")
-    public NodeDrainResponse drainNode(@PathVariable String name) {
-        try {
-            return nodeOperationsService.drainNode(name);
-        } catch (IllegalArgumentException e) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage(), e);
-        } catch (ApiException e) {
-            throw mapApiException("drain node", name, e);
         }
     }
 

@@ -5,7 +5,6 @@ import { StatusBadge } from '../components/dashboard/StatusBadge'
 import { clusterApi } from '../services/api'
 import type { KubernetesNode, KubernetesPod, NodeMetrics } from '../types/cluster'
 import { NodeDetailsPanel } from '../components/dashboard/NodeDetailsPanel'
-import { NodeDrainModal } from '../components/dashboard/NodeDrainModal'
 
 function formatBytes(value: number | undefined): string {
   if (value === undefined || !Number.isFinite(value)) return '—'
@@ -27,7 +26,6 @@ export function NodesPage() {
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [selectedNode, setSelectedNode] = useState<KubernetesNode | null>(null)
-  const [drainTargetNode, setDrainTargetNode] = useState<string | null>(null)
 
   const loadNodes = useCallback(async (signal?: AbortSignal) => {
     setLoading(true)
@@ -171,16 +169,6 @@ export function NodesPage() {
                 initialPods={pods.filter((p) => p.nodeName === selectedNode.name)}
                 onClose={() => setSelectedNode(null)}
                 onNodeUpdated={() => {
-                  void loadNodes()
-                }}
-                onOpenDrain={() => setDrainTargetNode(selectedNode.name)}
-            />
-        )}
-        {drainTargetNode && (
-            <NodeDrainModal
-                nodeName={drainTargetNode}
-                onClose={() => setDrainTargetNode(null)}
-                onDrainComplete={() => {
                   void loadNodes()
                 }}
             />

@@ -5,8 +5,12 @@ import type {
   KubernetesPod,
   NodeMetrics,
   PodMetrics,
-  NamespaceInfo, NodeDetailResponse, NodeOperationResponse, OperationAuditRecord, NamespaceOverviewItem,
-  NamespaceDetailResponse, NodeDrainPrecheckResponse, NodeDrainResponse,
+  NamespaceInfo,
+  NodeDetailResponse,
+  NodeOperationResponse,
+  OperationAuditRecord,
+  NamespaceOverviewItem,
+  NamespaceDetailResponse,
 } from '../types/cluster'
 import type { PodInspection } from '../types/podInspection'
 import type {
@@ -173,25 +177,6 @@ export const clusterApi = {
     if (targetName) params.set('targetName', targetName)
     const query = params.toString() ? `?${params.toString()}` : ''
     return request<OperationAuditRecord[]>(`/api/audit${query}`, signal)
-  },
-  precheckNodeDrain: (nodeName: string, signal?: AbortSignal) =>
-      request<NodeDrainPrecheckResponse>(
-          `/api/cluster/nodes/${encodeURIComponent(nodeName)}/drain/precheck`,
-          signal,
-      ),
-  drainNode: async (nodeName: string): Promise<NodeDrainResponse> => {
-    const response = await fetch(
-        `${API_BASE_URL}/api/cluster/nodes/${encodeURIComponent(nodeName)}/drain`,
-        {
-          method: 'POST',
-          headers: { Accept: 'application/json' },
-        },
-    )
-    if (!response.ok) {
-      const detail = await response.text().catch(() => '')
-      throw new Error(detail || `Drain failed with status ${response.status}`)
-    }
-    return response.json() as Promise<NodeDrainResponse>
   },
   getNamespaceOverview: (signal?: AbortSignal) =>
       request<NamespaceOverviewItem[]>('/api/cluster/namespaces/overview', signal),
