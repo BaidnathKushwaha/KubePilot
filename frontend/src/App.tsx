@@ -24,7 +24,6 @@ function App() {
           <Route path="workloads" element={<DeploymentsPage />} />
           <Route path="statefulsets" element={<StatefulSetsPage />} />
           <Route path="namespaces" element={<NamespacesPage/>} />
-          <Route path="services" element={<ResourcePlaceholderPage title="Services & Networking" description="Explore Services, Ingress resources, and cluster networking relationships." eyebrow="Networking" />} />
           <Route path="topology" element={<TopologyPage />} />
           <Route path="events" element={<EventsPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />

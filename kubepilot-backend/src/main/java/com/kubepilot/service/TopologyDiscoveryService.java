@@ -7,6 +7,7 @@ import io.kubernetes.client.openapi.ApiException;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 public class TopologyDiscoveryService {
@@ -34,11 +35,22 @@ public class TopologyDiscoveryService {
         List<StatefulSetResponse> statefulSets =
                 resourceService.getStatefulSets(namespace);
 
-        List<NodeResponse> nodes = nodeService.getNodes();
+        List<NodeResponse> allNodes = nodeService.getNodes();
 
         List<PodResponse> pods = namespace == null || namespace.isBlank()
                 ? podService.getPods()
                 : podService.getPodsByNamespace(namespace);
+
+        Set<String> podNodeNames = pods.stream()
+                .map(PodResponse::nodeName)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+
+        List<NodeResponse> nodes = namespace == null || namespace.isBlank()
+                ? allNodes
+                : allNodes.stream()
+                .filter(node -> podNodeNames.contains(node.name()))
+                .toList();
 
         List<DeploymentResponse> deployments =
                 resourceService.getDeployments(namespace);
@@ -186,14 +198,21 @@ public class TopologyDiscoveryService {
             }
         }
 
-        // Add services and service -> pod relationships.
+        // Add Services without direct selector-to-Pod edges.
+        // Actual endpoint relationships are represented through EndpointSlices.
 
         Set<String> discoveredServiceIds = new HashSet<>();
+
         for (ServiceResponse service : services) {
 
             String serviceId = nodeId(
-                    "Service", service.namespace(), service.name());
+                    "Service",
+                    service.namespace(),
+                    service.name()
+            );
+
             discoveredServiceIds.add(serviceId);
+
             topologyNodes.add(new TopologyNode(
                     serviceId,
                     "Service",
@@ -201,21 +220,6 @@ public class TopologyDiscoveryService {
                     service.namespace(),
                     service.type()
             ));
-
-            for (PodResponse pod : pods) {
-
-                if (!service.namespace().equals(pod.namespace())) {
-                    continue;
-                }
-
-                if (matchesSelector(service.selector(), pod)) {
-                    edges.add(new TopologyEdge(
-                            serviceId,
-                            nodeId("Pod", pod.namespace(), pod.name()),
-                            "SELECTS"
-                    ));
-                }
-            }
         }
 
         // Add ingresses and ingress -> service relationships.
