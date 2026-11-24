@@ -10,6 +10,7 @@ import DeploymentsPage from './pages/DeploymentsPage'
 import StatefulSetsPage from './pages/StatefulSetsPage'
 import {NamespacesPage} from "./pages/NamespacesPage.tsx";
 import {EventsPage} from "./pages/EventsPage.tsx";
+import {ServicesPage} from "./pages/ServicesPage.tsx";
 
 function App() {
   return (
@@ -27,6 +28,7 @@ function App() {
           <Route path="topology" element={<TopologyPage />} />
           <Route path="events" element={<EventsPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
+          <Route path="services" element={<ServicesPage />} />
         </Route>
       </Routes>
     </BrowserRouter>

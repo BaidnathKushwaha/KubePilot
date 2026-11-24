@@ -20,6 +20,12 @@ import type {
   StatefulSetInfo,
   WorkloadOperationResponse,
 } from '../types/workload'
+import type {
+  HpaResponse,
+  HpaUpsertRequest,
+  ServiceTrafficResponse,
+  WorkloadPressureResponse
+} from "../types/traffic.ts";
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080').replace(/\/$/, '')
 
@@ -365,5 +371,75 @@ export const clusterApi = {
     }
 
     return response.json() as Promise<WorkloadOperationResponse>
+  },
+  getWorkloadPressure: (
+      params?: {
+        namespace?: string
+        cpuThresholdPercent?: number
+        memoryThresholdPercent?: number
+        nearLimitPercent?: number
+      },
+      signal?: AbortSignal,
+  ) => {
+    const searchParams = new URLSearchParams()
+    if (params?.namespace) searchParams.set('namespace', params.namespace)
+    if (params?.cpuThresholdPercent !== undefined) searchParams.set('cpuThresholdPercent', String(params.cpuThresholdPercent))
+    if (params?.memoryThresholdPercent !== undefined) searchParams.set('memoryThresholdPercent', String(params.memoryThresholdPercent))
+    if (params?.nearLimitPercent !== undefined) searchParams.set('nearLimitPercent', String(params.nearLimitPercent))
+    const query = searchParams.toString() ? `?${searchParams.toString()}` : ''
+    return request<WorkloadPressureResponse>(`/api/metrics/workloads${query}`, signal)
+  },
+  getHpas: (namespace?: string, signal?: AbortSignal) => {
+    const query = namespace ? `?namespace=${encodeURIComponent(namespace)}` : ''
+    return request<HpaResponse[]>(`/api/cluster/hpas${query}`, signal)
+  },
+  createHpa: async (payload: HpaUpsertRequest): Promise<WorkloadOperationResponse> => {
+    const response = await fetch(`${API_BASE_URL}/api/cluster/hpas`, {
+      method: 'POST',
+      headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+    if (!response.ok) {
+      const detail = await response.text().catch(() => '')
+      throw new Error(detail || `Create HPA failed with status ${response.status}`)
+    }
+    return response.json() as Promise<WorkloadOperationResponse>
+  },
+  updateHpa: async (
+      namespace: string,
+      name: string,
+      payload: HpaUpsertRequest,
+  ): Promise<WorkloadOperationResponse> => {
+    const response = await fetch(
+        `${API_BASE_URL}/api/cluster/hpas/${encodeURIComponent(namespace)}/${encodeURIComponent(name)}`,
+        {
+          method: 'PUT',
+          headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        },
+    )
+    if (!response.ok) {
+      const detail = await response.text().catch(() => '')
+      throw new Error(detail || `Update HPA failed with status ${response.status}`)
+    }
+    return response.json() as Promise<WorkloadOperationResponse>
+  },
+  deleteHpa: async (namespace: string, name: string): Promise<WorkloadOperationResponse> => {
+    const response = await fetch(
+        `${API_BASE_URL}/api/cluster/hpas/${encodeURIComponent(namespace)}/${encodeURIComponent(name)}`,
+        {
+          method: 'DELETE',
+          headers: { Accept: 'application/json' },
+        },
+    )
+    if (!response.ok) {
+      const detail = await response.text().catch(() => '')
+      throw new Error(detail || `Delete HPA failed with status ${response.status}`)
+    }
+    return response.json() as Promise<WorkloadOperationResponse>
+  },
+  getServiceTraffic: (namespace?: string, signal?: AbortSignal) => {
+    const query = namespace ? `?namespace=${encodeURIComponent(namespace)}` : ''
+    return request<ServiceTrafficResponse>(`/api/cluster/traffic${query}`, signal)
   },
 }

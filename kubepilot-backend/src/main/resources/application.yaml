@@ -1,3 +1,10 @@
 spring:
   application:
     name: kubepilot-backend
+
+kubepilot:
+  monitoring:
+    cpu-overload-percent: 80.0
+    memory-overload-percent: 80.0
+    near-limit-percent: 85.0
+    prometheus-url: ""
