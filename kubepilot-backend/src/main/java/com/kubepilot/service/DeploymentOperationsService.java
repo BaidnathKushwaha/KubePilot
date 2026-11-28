@@ -8,16 +8,19 @@ import com.kubepilot.dto.WorkloadOperationResponse;
 import io.kubernetes.client.openapi.ApiClient;
 import io.kubernetes.client.openapi.ApiException;
 import io.kubernetes.client.openapi.apis.AppsV1Api;
+import io.kubernetes.client.openapi.apis.AutoscalingV2Api;
 import io.kubernetes.client.openapi.models.V1Container;
 import io.kubernetes.client.openapi.models.V1Deployment;
 import io.kubernetes.client.openapi.models.V1DeploymentCondition;
 import io.kubernetes.client.openapi.models.V1DeploymentSpec;
 import io.kubernetes.client.openapi.models.V1DeploymentStatus;
 import io.kubernetes.client.openapi.models.V1ObjectMeta;
-import io.kubernetes.client.openapi.models.V1OwnerReference;
 import io.kubernetes.client.openapi.models.V1PodTemplateSpec;
 import io.kubernetes.client.openapi.models.V1ReplicaSet;
 import io.kubernetes.client.openapi.models.V1ReplicaSetList;
+import io.kubernetes.client.openapi.models.V2CrossVersionObjectReference;
+import io.kubernetes.client.openapi.models.V2HorizontalPodAutoscaler;
+import io.kubernetes.client.openapi.models.V2HorizontalPodAutoscalerList;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -31,13 +34,18 @@ import java.util.Objects;
 @Service
 public class DeploymentOperationsService {
 
+    private static final int MIN_REPLICAS = 0;
     private static final int MAX_REPLICAS = 50;
     private static final String REVISION_ANNOTATION = "deployment.kubernetes.io/revision";
 
     private final AppsV1Api appsApi;
+    private final AutoscalingV2Api autoscalingApi;
+    private final OperationAuditService auditService;
 
-    public DeploymentOperationsService(ApiClient apiClient) {
+    public DeploymentOperationsService(ApiClient apiClient, OperationAuditService auditService) {
         this.appsApi = new AppsV1Api(apiClient);
+        this.autoscalingApi = new AutoscalingV2Api(apiClient);
+        this.auditService = auditService;
     }
 
     public DeploymentOperationResponse scaleDeployment(
@@ -46,49 +54,99 @@ public class DeploymentOperationsService {
             int replicas
     ) throws ApiException {
 
-        validateNamespace(namespace);
-        validateDeploymentName(name);
-        validateReplicas(replicas);
+        String ns = namespace != null ? namespace.trim() : "";
+        String depName = name != null ? name.trim() : "";
 
-        V1Deployment deployment = appsApi
-                .readNamespacedDeployment(name, namespace)
-                .execute();
-
-        if (deployment.getSpec() == null) {
-            throw new IllegalStateException(
-                    "Deployment specification is unavailable"
-            );
+        if (ns.isEmpty()) {
+            auditService.record("SCALE", "Deployment", depName.isEmpty() ? "unknown" : depName, null, "REJECTED",
+                    "previousReplicas=unknown, requestedReplicas=" + replicas, "Namespace must not be empty");
+            throw new IllegalArgumentException("Namespace must not be empty");
+        }
+        if (depName.isEmpty()) {
+            auditService.record("SCALE", "Deployment", "unknown", ns, "REJECTED",
+                    "previousReplicas=unknown, requestedReplicas=" + replicas, "Deployment name must not be empty");
+            throw new IllegalArgumentException("Deployment name must not be empty");
+        }
+        if (replicas < MIN_REPLICAS || replicas > MAX_REPLICAS) {
+            String msg = "Replicas must be between " + MIN_REPLICAS + " and " + MAX_REPLICAS + " (guardrail only; does not guarantee cluster capacity)";
+            auditService.record("SCALE", "Deployment", depName, ns, "REJECTED",
+                    "previousReplicas=unknown, requestedReplicas=" + replicas, msg);
+            throw new IllegalArgumentException(msg);
         }
 
-        Integer currentReplicas = deployment.getSpec().getReplicas();
+        try {
+            V1Deployment deployment = appsApi
+                    .readNamespacedDeployment(depName, ns)
+                    .execute();
 
-        if (currentReplicas != null && currentReplicas == replicas) {
-            return response(
-                    "SCALE",
-                    name,
-                    namespace,
-                    "NO_CHANGE",
-                    "Deployment already has " + replicas + " desired replicas",
-                    replicas
-            );
+            if (deployment.getSpec() == null) {
+                throw new IllegalStateException("Deployment specification is unavailable");
+            }
+
+            int previousReplicas = deployment.getSpec().getReplicas() != null
+                    ? deployment.getSpec().getReplicas()
+                    : 0;
+
+            String hpaAdvisory = findTargetingHpaAdvisory(ns, "Deployment", depName);
+
+            if (previousReplicas == replicas) {
+                String msg = "Deployment already has " + replicas + " desired replicas (previous=" + previousReplicas + ", requested=" + replicas + ")."
+                        + (hpaAdvisory != null ? " " + hpaAdvisory : "");
+                auditService.record("SCALE", "Deployment", depName, ns, "NO_CHANGE",
+                        "previousReplicas=" + previousReplicas + ", requestedReplicas=" + replicas
+                                + (hpaAdvisory != null ? ", hpaAdvisory=" + hpaAdvisory : ""),
+                        msg);
+                return response("SCALE", depName, ns, "NO_CHANGE", msg, replicas);
+            }
+
+            deployment.getSpec().setReplicas(replicas);
+
+            appsApi.replaceNamespacedDeployment(depName, ns, deployment).execute();
+
+            String msg = "Deployment scaling request accepted (previous=" + previousReplicas + ", requested=" + replicas
+                    + "; 0-50 bounds are an operational guardrail, not a guarantee of cluster capacity). Kubernetes will reconcile the replica count."
+                    + (hpaAdvisory != null ? " " + hpaAdvisory : "");
+            auditService.record("SCALE", "Deployment", depName, ns, "ACCEPTED",
+                    "previousReplicas=" + previousReplicas + ", requestedReplicas=" + replicas
+                            + (hpaAdvisory != null ? ", hpaAdvisory=" + hpaAdvisory : ""),
+                    msg);
+
+            return response("SCALE", depName, ns, "ACCEPTED", msg, replicas);
+        } catch (ApiException e) {
+            auditService.record("SCALE", "Deployment", depName, ns, "FAILED",
+                    "requestedReplicas=" + replicas, "Kubernetes API error (" + e.getCode() + "): " + e.getMessage());
+            throw e;
         }
+    }
 
-        deployment.getSpec().setReplicas(replicas);
-
-        appsApi.replaceNamespacedDeployment(
-                name,
-                namespace,
-                deployment
-        ).execute();
-
-        return response(
-                "SCALE",
-                name,
-                namespace,
-                "ACCEPTED",
-                "Deployment scaling request accepted. Kubernetes will reconcile the replica count.",
-                replicas
-        );
+    private String findTargetingHpaAdvisory(String namespace, String kind, String targetName) {
+        try {
+            V2HorizontalPodAutoscalerList hpaList = autoscalingApi
+                    .listNamespacedHorizontalPodAutoscaler(namespace)
+                    .execute();
+            if (hpaList.getItems() == null) {
+                return null;
+            }
+            List<String> matches = new ArrayList<>();
+            for (V2HorizontalPodAutoscaler hpa : hpaList.getItems()) {
+                if (hpa.getSpec() == null || hpa.getSpec().getScaleTargetRef() == null || hpa.getMetadata() == null) {
+                    continue;
+                }
+                V2CrossVersionObjectReference ref = hpa.getSpec().getScaleTargetRef();
+                if (kind.equals(ref.getKind()) && targetName.equals(ref.getName())) {
+                    int min = hpa.getSpec().getMinReplicas() != null ? hpa.getSpec().getMinReplicas() : 1;
+                    int max = hpa.getSpec().getMaxReplicas();
+                    matches.add(hpa.getMetadata().getName() + " (" + min + ".." + max + " replicas)");
+                }
+            }
+            if (matches.isEmpty()) {
+                return null;
+            }
+            return "HPA Advisory: Targeted by " + String.join(", ", matches)
+                    + "; the HorizontalPodAutoscaler controller may override manual replica changes.";
+        } catch (ApiException ignored) {
+            return null;
+        }
     }
 
     public DeploymentOperationResponse restartDeployment(
@@ -446,12 +504,6 @@ public class DeploymentOperationsService {
     private void validateDeploymentName(String name) {
         if (name == null || name.isBlank()) {
             throw new IllegalArgumentException("Deployment name must not be empty");
-        }
-    }
-
-    private void validateReplicas(int replicas) {
-        if (replicas < 0 || replicas > MAX_REPLICAS) {
-            throw new IllegalArgumentException("Replicas must be between 0 and " + MAX_REPLICAS);
         }
     }
 

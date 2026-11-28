@@ -20,12 +20,16 @@ import type {
     WorkloadOperationResponse,
 } from '../../types/workload'
 import type { DeploymentOperationResponse } from '../../services/api'
+import type { HpaResponse } from '../../types/traffic'
 
 interface Props {
     deployment: DeploymentInfo
     onClose: () => void
     onOperationComplete: () => void
 }
+
+const MIN_REPLICAS = 0
+const MAX_REPLICAS = 50
 
 export function DeploymentOperationsPanel({
                                               deployment,
@@ -45,19 +49,30 @@ export function DeploymentOperationsPanel({
     const [rolloutLoading, setRolloutLoading] = useState(false)
     const [selectedRevision, setSelectedRevision] = useState<RolloutRevisionItem | null>(null)
 
+    const [targetingHpas, setTargetingHpas] = useState<HpaResponse[]>([])
+    const [hpaAckChecked, setHpaAckChecked] = useState(false)
+    const [confirmRestartOpen, setConfirmRestartOpen] = useState(false)
+    const [confirmRollbackOpen, setConfirmRollbackOpen] = useState(false)
+
     const busy = scaling || restarting || rollingBack
 
-    const loadRolloutData = useCallback(async () => {
+    const loadRolloutAndHpaData = useCallback(async () => {
         setRolloutLoading(true)
         try {
-            const [statusRes, historyRes] = await Promise.all([
+            const [statusRes, historyRes, hpaList] = await Promise.all([
                 clusterApi.getDeploymentRolloutStatus(deployment.namespace, deployment.name),
                 clusterApi.getDeploymentRolloutHistory(deployment.namespace, deployment.name),
+                clusterApi.getHpas(deployment.namespace).catch(() => []),
             ])
             setRolloutStatus(statusRes)
             setRolloutHistory(historyRes)
             const defaultCandidate = historyRes.revisions.find((r) => r.rollbackCandidate) ?? null
             setSelectedRevision(defaultCandidate)
+            setTargetingHpas(
+                hpaList.filter(
+                    (h) => h.targetKind === 'Deployment' && h.targetName === deployment.name,
+                ),
+            )
         } catch (cause) {
             setError(cause instanceof Error ? cause.message : 'Failed to load rollout details')
         } finally {
@@ -70,10 +85,22 @@ export function DeploymentOperationsPanel({
         setResult(null)
         setRollbackResult(null)
         setError(null)
-        void loadRolloutData()
-    }, [deployment, loadRolloutData])
+        setHpaAckChecked(false)
+        setConfirmRestartOpen(false)
+        setConfirmRollbackOpen(false)
+        void loadRolloutAndHpaData()
+    }, [deployment, loadRolloutAndHpaData])
 
     const handleScale = async () => {
+        if (!Number.isInteger(replicas) || replicas < MIN_REPLICAS || replicas > MAX_REPLICAS) {
+            setError(`Desired replicas must be an integer between ${MIN_REPLICAS} and ${MAX_REPLICAS}.`)
+            return
+        }
+        if (targetingHpas.length > 0 && !hpaAckChecked) {
+            setError('Acknowledge the HPA advisory before applying a manual replica change.')
+            return
+        }
+
         setScaling(true)
         setError(null)
         setResult(null)
@@ -87,8 +114,9 @@ export function DeploymentOperationsPanel({
             )
 
             setResult(response)
+            setHpaAckChecked(false)
             onOperationComplete()
-            void loadRolloutData()
+            void loadRolloutAndHpaData()
         } catch (cause) {
             setError(
                 cause instanceof Error
@@ -101,12 +129,6 @@ export function DeploymentOperationsPanel({
     }
 
     const handleRestart = async () => {
-        const confirmed = window.confirm(
-            `Restart Deployment "${deployment.name}" in namespace "${deployment.namespace}"?`,
-        )
-
-        if (!confirmed) return
-
         setRestarting(true)
         setError(null)
         setResult(null)
@@ -119,8 +141,9 @@ export function DeploymentOperationsPanel({
             )
 
             setResult(response)
+            setConfirmRestartOpen(false)
             onOperationComplete()
-            void loadRolloutData()
+            void loadRolloutAndHpaData()
         } catch (cause) {
             setError(
                 cause instanceof Error
@@ -138,11 +161,6 @@ export function DeploymentOperationsPanel({
             return
         }
 
-        const confirmed = window.confirm(
-            `Roll back Deployment "${deployment.name}" in "${deployment.namespace}" to revision ${selectedRevision.revision} (${selectedRevision.replicaSetName})?`,
-        )
-        if (!confirmed) return
-
         setRollingBack(true)
         setError(null)
         setResult(null)
@@ -155,8 +173,9 @@ export function DeploymentOperationsPanel({
                 selectedRevision.revision,
             )
             setRollbackResult(response)
+            setConfirmRollbackOpen(false)
             onOperationComplete()
-            void loadRolloutData()
+            void loadRolloutAndHpaData()
         } catch (cause) {
             setError(cause instanceof Error ? cause.message : 'Rollback operation failed')
         } finally {
@@ -256,7 +275,7 @@ export function DeploymentOperationsPanel({
                         </div>
                         <button
                             type="button"
-                            onClick={() => void loadRolloutData()}
+                            onClick={() => void loadRolloutAndHpaData()}
                             disabled={rolloutLoading || busy}
                             className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.08] px-2.5 py-1 text-[11px] text-slate-300 hover:bg-white/5 disabled:opacity-50"
                         >
@@ -315,7 +334,10 @@ export function DeploymentOperationsPanel({
                                         key={rev.replicaSetName}
                                         type="button"
                                         disabled={rev.current || busy}
-                                        onClick={() => setSelectedRevision(rev)}
+                                        onClick={() => {
+                                            setSelectedRevision(rev)
+                                            setConfirmRollbackOpen(false)
+                                        }}
                                         className={`w-full rounded-lg border p-3 text-left text-xs transition ${
                                             isSelected
                                                 ? 'border-indigo-400/50 bg-indigo-500/10'
@@ -351,9 +373,35 @@ export function DeploymentOperationsPanel({
                         </div>
                     )}
 
+                    {confirmRollbackOpen && selectedRevision && (
+                        <div className="mt-3 rounded-lg border border-indigo-400/30 bg-indigo-500/10 p-3 text-xs text-indigo-100">
+                            <p>
+                                Confirm rollback of <strong>Deployment {deployment.namespace}/{deployment.name}</strong> to <strong>Revision {selectedRevision.revision}</strong>?
+                            </p>
+                            <div className="mt-2.5 flex gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => void handleRollback()}
+                                    disabled={busy}
+                                    className="rounded-lg border border-indigo-400/40 bg-indigo-500/20 px-3 py-1.5 text-xs font-medium text-indigo-100 hover:bg-indigo-500/30 disabled:opacity-50"
+                                >
+                                    Confirm Rollback
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setConfirmRollbackOpen(false)}
+                                    disabled={busy}
+                                    className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-slate-300 hover:bg-white/5 disabled:opacity-50"
+                                >
+                                    Cancel
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
                     <button
                         type="button"
-                        onClick={() => void handleRollback()}
+                        onClick={() => setConfirmRollbackOpen(true)}
                         disabled={busy || !selectedRevision || !selectedRevision.rollbackCandidate}
                         className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg border border-indigo-400/25 bg-indigo-500/10 px-4 py-3 text-sm font-medium text-indigo-200 transition hover:bg-indigo-500/20 disabled:cursor-not-allowed disabled:opacity-40"
                     >
@@ -377,9 +425,36 @@ export function DeploymentOperationsPanel({
                     </div>
 
                     <p className="mt-2 text-xs leading-5 text-slate-500">
-                        Change the desired replica count. Kubernetes will
-                        automatically reconcile the Deployment.
+                        Target: <strong className="text-slate-300">Deployment {deployment.namespace}/{deployment.name}</strong> · Requested replicas: <strong className="text-cyan-200">{replicas}</strong>. The 0–50 range is an operational guardrail, not a guarantee of cluster capacity.
                     </p>
+
+                    {targetingHpas.length > 0 && (
+                        <div className="mt-4 rounded-lg border border-amber-400/30 bg-amber-400/[0.06] p-3 text-xs text-amber-200">
+                            <div className="flex items-start gap-2">
+                                <AlertTriangle size={15} className="mt-0.5 shrink-0 text-amber-300" />
+                                <div>
+                                    <p className="font-semibold">HPA Advisory: Autoscaler Targets This Workload</p>
+                                    <p className="mt-1 leading-5 text-amber-100/90">
+                                        Targeted by{' '}
+                                        {targetingHpas
+                                            .map((h) => `${h.name} (${h.minReplicas}..${h.maxReplicas} replicas)`)
+                                            .join(', ')}
+                                        . The HorizontalPodAutoscaler controller may override your manually requested replica count.
+                                    </p>
+                                    <label className="mt-2.5 flex cursor-pointer items-center gap-2 text-[11px] font-medium text-amber-100">
+                                        <input
+                                            type="checkbox"
+                                            checked={hpaAckChecked}
+                                            onChange={(e) => setHpaAckChecked(e.target.checked)}
+                                            disabled={busy}
+                                            className="accent-amber-400"
+                                        />
+                                        I understand an HPA may override this manual scale operation for {deployment.namespace}/{deployment.name} ({replicas} replicas).
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
                     <div className="mt-5">
                         <label className="text-xs text-slate-400">
@@ -390,9 +465,9 @@ export function DeploymentOperationsPanel({
                             <button
                                 type="button"
                                 onClick={() =>
-                                    setReplicas((value) => Math.max(0, value - 1))
+                                    setReplicas((value) => Math.max(MIN_REPLICAS, value - 1))
                                 }
-                                disabled={busy || replicas <= 0}
+                                disabled={busy || replicas <= MIN_REPLICAS}
                                 className="rounded-lg border border-white/[0.08] p-3 text-slate-300 hover:bg-white/[0.05] disabled:opacity-40"
                             >
                                 <Minus size={16} />
@@ -400,14 +475,14 @@ export function DeploymentOperationsPanel({
 
                             <input
                                 type="number"
-                                min={0}
-                                max={50}
+                                min={MIN_REPLICAS}
+                                max={MAX_REPLICAS}
                                 value={replicas}
                                 onChange={(event) => {
                                     const value = event.target.value
 
                                     if (value === '') {
-                                        setReplicas(0)
+                                        setReplicas(MIN_REPLICAS)
                                         return
                                     }
 
@@ -415,8 +490,8 @@ export function DeploymentOperationsPanel({
 
                                     if (
                                         Number.isInteger(parsed) &&
-                                        parsed >= 0 &&
-                                        parsed <= 50
+                                        parsed >= MIN_REPLICAS &&
+                                        parsed <= MAX_REPLICAS
                                     ) {
                                         setReplicas(parsed)
                                     }
@@ -428,9 +503,9 @@ export function DeploymentOperationsPanel({
                             <button
                                 type="button"
                                 onClick={() =>
-                                    setReplicas((value) => Math.min(50, value + 1))
+                                    setReplicas((value) => Math.min(MAX_REPLICAS, value + 1))
                                 }
-                                disabled={busy || replicas >= 50}
+                                disabled={busy || replicas >= MAX_REPLICAS}
                                 className="rounded-lg border border-white/[0.08] p-3 text-slate-300 hover:bg-white/[0.05] disabled:opacity-40"
                             >
                                 <Plus size={16} />
@@ -438,7 +513,7 @@ export function DeploymentOperationsPanel({
                         </div>
 
                         <p className="mt-2 text-[10px] text-slate-500">
-                            Allowed range: 0 to 50 replicas
+                            Operational guardrail range: {MIN_REPLICAS} to {MAX_REPLICAS} replicas (does not guarantee available cluster capacity)
                         </p>
                     </div>
 
@@ -461,8 +536,9 @@ export function DeploymentOperationsPanel({
                         disabled={
                             busy ||
                             replicas === deployment.desiredReplicas ||
-                            replicas < 0 ||
-                            replicas > 50
+                            replicas < MIN_REPLICAS ||
+                            replicas > MAX_REPLICAS ||
+                            (targetingHpas.length > 0 && !hpaAckChecked)
                         }
                         className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg bg-cyan-500/10 px-4 py-3 text-sm font-medium text-cyan-300 transition hover:bg-cyan-500/20 disabled:cursor-not-allowed disabled:opacity-40"
                     >
@@ -474,7 +550,7 @@ export function DeploymentOperationsPanel({
                         ) : (
                             <>
                                 <RefreshCw size={15} />
-                                Apply Scaling
+                                {`Apply Scaling (${replicas} replicas)`}
                             </>
                         )}
                     </button>
@@ -495,23 +571,40 @@ export function DeploymentOperationsPanel({
                         existing pods while respecting the Deployment strategy.
                     </p>
 
+                    {confirmRestartOpen && (
+                        <div className="mt-4 rounded-lg border border-amber-400/30 bg-amber-400/[0.06] p-3 text-xs text-amber-200">
+                            <p>
+                                Confirm rolling restart of <strong>Deployment {deployment.namespace}/{deployment.name}</strong>?
+                            </p>
+                            <div className="mt-2.5 flex gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => void handleRestart()}
+                                    disabled={busy}
+                                    className="rounded-lg border border-amber-400/40 bg-amber-400/15 px-3 py-1.5 text-xs font-medium text-amber-100 hover:bg-amber-400/25 disabled:opacity-50"
+                                >
+                                    Confirm Restart
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setConfirmRestartOpen(false)}
+                                    disabled={busy}
+                                    className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-slate-300 hover:bg-white/5 disabled:opacity-50"
+                                >
+                                    Cancel
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
                     <button
                         type="button"
-                        onClick={() => void handleRestart()}
+                        onClick={() => setConfirmRestartOpen(true)}
                         disabled={busy}
                         className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg border border-amber-400/20 bg-amber-400/[0.05] px-4 py-3 text-sm font-medium text-amber-300 transition hover:bg-amber-400/[0.1] disabled:opacity-50"
                     >
-                        {restarting ? (
-                            <>
-                                <RefreshCw size={15} className="animate-spin" />
-                                Restarting...
-                            </>
-                        ) : (
-                            <>
-                                <RotateCcw size={15} />
-                                Restart Deployment
-                            </>
-                        )}
+                        <RotateCcw size={15} className={restarting ? 'animate-spin' : ''} />
+                        {restarting ? 'Restarting...' : 'Restart Deployment'}
                     </button>
                 </section>
 
@@ -526,7 +619,7 @@ export function DeploymentOperationsPanel({
 
                             <div>
                                 <p className="text-sm font-semibold text-emerald-300">
-                                    {result.operation} operation: {result.status}
+                                    {result.operation} operation: {result.status} ({result.namespace}/{result.name})
                                 </p>
 
                                 <p className="mt-2 text-xs leading-5 text-slate-300">

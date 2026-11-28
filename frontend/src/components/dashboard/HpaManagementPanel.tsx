@@ -85,11 +85,17 @@ export function HpaManagementPanel({
             setError('HPA name, namespace, and target workload name are required.')
             return
         }
-        if (minReplicas < 1 || maxReplicas > 50 || minReplicas > maxReplicas) {
+        if (
+            !Number.isInteger(minReplicas) ||
+            !Number.isInteger(maxReplicas) ||
+            minReplicas < 1 ||
+            maxReplicas > 50 ||
+            minReplicas > maxReplicas
+        ) {
             setError('Replicas must satisfy 1 <= minReplicas <= maxReplicas <= 50.')
             return
         }
-        if (targetUtil < 1 || targetUtil > 100) {
+        if (!Number.isInteger(targetUtil) || targetUtil < 1 || targetUtil > 100) {
             setError('Target utilization must be between 1% and 100%.')
             return
         }
@@ -142,6 +148,8 @@ export function HpaManagementPanel({
         }
     }
 
+    const hasRequestWarning = Boolean(opResult?.message?.includes('Warning:'))
+
     return (
         <div
             className="fixed inset-0 z-[90] flex justify-end bg-slate-950/70 backdrop-blur-sm"
@@ -188,10 +196,10 @@ export function HpaManagementPanel({
                 {/* Create / Update Form */}
                 <form onSubmit={(e) => void handleSave(e)} className="mt-5 space-y-3 rounded-xl border border-white/[0.07] bg-[#0d1523] p-4 text-xs">
                     <div className="flex items-center justify-between">
-            <span className="flex items-center gap-2 font-semibold text-slate-200">
-              <Gauge size={14} className="text-cyan-300" />
-                {editingName ? `Update HPA: ${editingName}` : 'Create HorizontalPodAutoscaler'}
-            </span>
+                        <span className="flex items-center gap-2 font-semibold text-slate-200">
+                            <Gauge size={14} className="text-cyan-300" />
+                            {editingName ? `Update HPA: ${editingName}` : 'Create HorizontalPodAutoscaler'}
+                        </span>
                         {editingName && (
                             <button type="button" onClick={resetForm} className="text-[11px] text-slate-400 underline">
                                 Cancel Edit
@@ -249,7 +257,10 @@ export function HpaManagementPanel({
                                 min={1}
                                 max={50}
                                 value={minReplicas}
-                                onChange={(e) => setMinReplicas(Number(e.target.value) || 1)}
+                                onChange={(e) => {
+                                    const parsed = Number(e.target.value)
+                                    setMinReplicas(Number.isFinite(parsed) ? Math.trunc(parsed) : 0)
+                                }}
                                 disabled={submitting}
                                 className="mt-1 w-full rounded-lg border border-white/10 bg-slate-950/50 px-3 py-2 text-slate-100"
                             />
@@ -261,7 +272,10 @@ export function HpaManagementPanel({
                                 min={1}
                                 max={50}
                                 value={maxReplicas}
-                                onChange={(e) => setMaxReplicas(Number(e.target.value) || 1)}
+                                onChange={(e) => {
+                                    const parsed = Number(e.target.value)
+                                    setMaxReplicas(Number.isFinite(parsed) ? Math.trunc(parsed) : 0)
+                                }}
                                 disabled={submitting}
                                 className="mt-1 w-full rounded-lg border border-white/10 bg-slate-950/50 px-3 py-2 text-slate-100"
                             />
@@ -285,7 +299,10 @@ export function HpaManagementPanel({
                                 min={1}
                                 max={100}
                                 value={targetUtil}
-                                onChange={(e) => setTargetUtil(Number(e.target.value) || 75)}
+                                onChange={(e) => {
+                                    const parsed = Number(e.target.value)
+                                    setTargetUtil(Number.isFinite(parsed) ? Math.trunc(parsed) : 0)
+                                }}
                                 disabled={submitting}
                                 className="mt-1 w-full rounded-lg border border-white/10 bg-slate-950/50 px-3 py-2 text-slate-100"
                             />
@@ -303,11 +320,21 @@ export function HpaManagementPanel({
                 </form>
 
                 {opResult && (
-                    <div className="mt-4 flex items-start gap-2.5 rounded-xl border border-emerald-400/25 bg-emerald-400/[0.05] p-3 text-xs text-emerald-200">
-                        <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-emerald-400" />
+                    <div
+                        className={`mt-4 flex items-start gap-2.5 rounded-xl border p-3 text-xs ${
+                            hasRequestWarning
+                                ? 'border-amber-400/30 bg-amber-400/[0.06] text-amber-100'
+                                : 'border-emerald-400/25 bg-emerald-400/[0.05] text-emerald-200'
+                        }`}
+                    >
+                        {hasRequestWarning ? (
+                            <AlertTriangle size={16} className="mt-0.5 shrink-0 text-amber-300" />
+                        ) : (
+                            <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-emerald-400" />
+                        )}
                         <div>
                             <p className="font-semibold">{opResult.operation}: {opResult.status}</p>
-                            <p className="mt-1 text-slate-300">{opResult.message}</p>
+                            <p className="mt-1 text-slate-200">{opResult.message}</p>
                         </div>
                     </div>
                 )}
@@ -362,8 +389,8 @@ export function HpaManagementPanel({
                                     <span>Bounds: <strong>{h.minReplicas}–{h.maxReplicas}</strong></span>
                                     <span>Replicas: <strong>{h.currentReplicas} cur / {h.desiredReplicas} des</strong></span>
                                     <span>
-                    {h.metricName.toUpperCase()}: <strong>{h.currentUtilizationPercent ?? '—'}%</strong> / {h.targetUtilizationPercent ?? '—'}%
-                  </span>
+                                        {h.metricName.toUpperCase()}: <strong>{h.currentUtilizationPercent ?? '—'}%</strong> / {h.targetUtilizationPercent ?? '—'}%
+                                    </span>
                                     <span>Last scale: <strong>{h.lastScaleTime ? new Date(h.lastScaleTime).toLocaleTimeString() : 'Never'}</strong></span>
                                 </div>
 

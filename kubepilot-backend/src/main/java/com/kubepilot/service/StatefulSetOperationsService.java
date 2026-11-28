@@ -4,22 +4,33 @@ import com.kubepilot.dto.WorkloadOperationResponse;
 import io.kubernetes.client.openapi.ApiClient;
 import io.kubernetes.client.openapi.ApiException;
 import io.kubernetes.client.openapi.apis.AppsV1Api;
+import io.kubernetes.client.openapi.apis.AutoscalingV2Api;
 import io.kubernetes.client.openapi.models.V1StatefulSet;
+import io.kubernetes.client.openapi.models.V2CrossVersionObjectReference;
+import io.kubernetes.client.openapi.models.V2HorizontalPodAutoscaler;
+import io.kubernetes.client.openapi.models.V2HorizontalPodAutoscalerList;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @Service
 public class StatefulSetOperationsService {
 
+    private static final int MIN_REPLICAS = 0;
     private static final int MAX_REPLICAS = 50;
 
     private final AppsV1Api appsApi;
+    private final AutoscalingV2Api autoscalingApi;
+    private final OperationAuditService auditService;
 
-    public StatefulSetOperationsService(ApiClient apiClient) {
+    public StatefulSetOperationsService(ApiClient apiClient, OperationAuditService auditService) {
         this.appsApi = new AppsV1Api(apiClient);
+        this.autoscalingApi = new AutoscalingV2Api(apiClient);
+        this.auditService = auditService;
     }
 
     public WorkloadOperationResponse scaleStatefulSet(
@@ -27,39 +38,96 @@ public class StatefulSetOperationsService {
             String name,
             int replicas
     ) throws ApiException {
-        validateNotBlank(namespace, "Namespace must not be empty");
-        validateNotBlank(name, "StatefulSet name must not be empty");
-        validateReplicas(replicas);
+        String ns = namespace != null ? namespace.trim() : "";
+        String stsName = name != null ? name.trim() : "";
 
-        V1StatefulSet statefulSet = appsApi.readNamespacedStatefulSet(name, namespace).execute();
-
-        if (statefulSet.getSpec() == null) {
-            throw new IllegalStateException("StatefulSet specification is unavailable");
+        if (ns.isEmpty()) {
+            auditService.record("SCALE", "StatefulSet", stsName.isEmpty() ? "unknown" : stsName, null, "REJECTED",
+                    "previousReplicas=unknown, requestedReplicas=" + replicas, "Namespace must not be empty");
+            throw new IllegalArgumentException("Namespace must not be empty");
+        }
+        if (stsName.isEmpty()) {
+            auditService.record("SCALE", "StatefulSet", "unknown", ns, "REJECTED",
+                    "previousReplicas=unknown, requestedReplicas=" + replicas, "StatefulSet name must not be empty");
+            throw new IllegalArgumentException("StatefulSet name must not be empty");
+        }
+        if (replicas < MIN_REPLICAS || replicas > MAX_REPLICAS) {
+            String msg = "Replicas must be between " + MIN_REPLICAS + " and " + MAX_REPLICAS + " (guardrail only; does not guarantee cluster capacity)";
+            auditService.record("SCALE", "StatefulSet", stsName, ns, "REJECTED",
+                    "previousReplicas=unknown, requestedReplicas=" + replicas, msg);
+            throw new IllegalArgumentException(msg);
         }
 
-        Integer currentReplicas = statefulSet.getSpec().getReplicas();
-        if (currentReplicas != null && currentReplicas == replicas) {
-            return response(
-                    "SCALE",
-                    name,
-                    namespace,
-                    "NO_CHANGE",
-                    "StatefulSet already has " + replicas + " desired replicas",
-                    replicas
-            );
+        try {
+            V1StatefulSet statefulSet = appsApi.readNamespacedStatefulSet(stsName, ns).execute();
+
+            if (statefulSet.getSpec() == null) {
+                throw new IllegalStateException("StatefulSet specification is unavailable");
+            }
+
+            int previousReplicas = statefulSet.getSpec().getReplicas() != null
+                    ? statefulSet.getSpec().getReplicas()
+                    : 0;
+
+            String hpaAdvisory = findTargetingHpaAdvisory(ns, "StatefulSet", stsName);
+
+            if (previousReplicas == replicas) {
+                String msg = "StatefulSet already has " + replicas + " desired replicas (previous=" + previousReplicas + ", requested=" + replicas + ")."
+                        + (hpaAdvisory != null ? " " + hpaAdvisory : "");
+                auditService.record("SCALE", "StatefulSet", stsName, ns, "NO_CHANGE",
+                        "previousReplicas=" + previousReplicas + ", requestedReplicas=" + replicas
+                                + (hpaAdvisory != null ? ", hpaAdvisory=" + hpaAdvisory : ""),
+                        msg);
+                return response("SCALE", stsName, ns, "NO_CHANGE", msg, replicas);
+            }
+
+            statefulSet.getSpec().setReplicas(replicas);
+            appsApi.replaceNamespacedStatefulSet(stsName, ns, statefulSet).execute();
+
+            String msg = "StatefulSet scaling request accepted (previous=" + previousReplicas + ", requested=" + replicas
+                    + "; 0-50 bounds are an operational guardrail, not a guarantee of cluster capacity). Kubernetes will reconcile ordered pod replicas according to the StatefulSet controller."
+                    + (hpaAdvisory != null ? " " + hpaAdvisory : "");
+            auditService.record("SCALE", "StatefulSet", stsName, ns, "ACCEPTED",
+                    "previousReplicas=" + previousReplicas + ", requestedReplicas=" + replicas
+                            + (hpaAdvisory != null ? ", hpaAdvisory=" + hpaAdvisory : ""),
+                    msg);
+
+            return response("SCALE", stsName, ns, "ACCEPTED", msg, replicas);
+        } catch (ApiException e) {
+            auditService.record("SCALE", "StatefulSet", stsName, ns, "FAILED",
+                    "requestedReplicas=" + replicas, "Kubernetes API error (" + e.getCode() + "): " + e.getMessage());
+            throw e;
         }
+    }
 
-        statefulSet.getSpec().setReplicas(replicas);
-        appsApi.replaceNamespacedStatefulSet(name, namespace, statefulSet).execute();
-
-        return response(
-                "SCALE",
-                name,
-                namespace,
-                "ACCEPTED",
-                "StatefulSet scaling request accepted. Kubernetes will reconcile ordered pod replicas according to the StatefulSet controller.",
-                replicas
-        );
+    private String findTargetingHpaAdvisory(String namespace, String kind, String targetName) {
+        try {
+            V2HorizontalPodAutoscalerList hpaList = autoscalingApi
+                    .listNamespacedHorizontalPodAutoscaler(namespace)
+                    .execute();
+            if (hpaList.getItems() == null) {
+                return null;
+            }
+            List<String> matches = new ArrayList<>();
+            for (V2HorizontalPodAutoscaler hpa : hpaList.getItems()) {
+                if (hpa.getSpec() == null || hpa.getSpec().getScaleTargetRef() == null || hpa.getMetadata() == null) {
+                    continue;
+                }
+                V2CrossVersionObjectReference ref = hpa.getSpec().getScaleTargetRef();
+                if (kind.equals(ref.getKind()) && targetName.equals(ref.getName())) {
+                    int min = hpa.getSpec().getMinReplicas() != null ? hpa.getSpec().getMinReplicas() : 1;
+                    int max = hpa.getSpec().getMaxReplicas();
+                    matches.add(hpa.getMetadata().getName() + " (" + min + ".." + max + " replicas)");
+                }
+            }
+            if (matches.isEmpty()) {
+                return null;
+            }
+            return "HPA Advisory: Targeted by " + String.join(", ", matches)
+                    + "; the HorizontalPodAutoscaler controller may override manual replica changes.";
+        } catch (ApiException ignored) {
+            return null;
+        }
     }
 
     public WorkloadOperationResponse restartStatefulSet(
@@ -110,12 +178,6 @@ public class StatefulSetOperationsService {
     private void validateNotBlank(String value, String message) {
         if (value == null || value.isBlank()) {
             throw new IllegalArgumentException(message);
-        }
-    }
-
-    private void validateReplicas(int replicas) {
-        if (replicas < 0 || replicas > MAX_REPLICAS) {
-            throw new IllegalArgumentException("Replicas must be between 0 and " + MAX_REPLICAS);
         }
     }
 

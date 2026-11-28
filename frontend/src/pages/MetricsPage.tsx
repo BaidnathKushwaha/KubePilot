@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Activity, AlertTriangle, Cpu, HardDrive, Layers, RefreshCw, Server } from 'lucide-react'
 import { RequestState } from '../components/dashboard/RequestState'
 import { StatusBadge } from '../components/dashboard/StatusBadge'
@@ -53,6 +53,7 @@ export function MetricsPage() {
   const [podMetrics, setPodMetrics] = useState<PodMetrics[]>([])
   const [nodes, setNodes] = useState<KubernetesNode[]>([])
   const [pressure, setPressure] = useState<WorkloadPressureResponse | null>(null)
+  const [pressureError, setPressureError] = useState<string | null>(null)
   const [cpuThreshold, setCpuThreshold] = useState<number>(80)
   const [memThreshold, setMemThreshold] = useState<number>(80)
   const [nearLimitThreshold, setNearLimitThreshold] = useState<number>(85)
@@ -61,27 +62,42 @@ export function MetricsPage() {
   const [updatedAt, setUpdatedAt] = useState<string | null>(null)
   const { namespace } = useNamespace()
 
+  const thresholdsRef = useRef({ cpuThreshold, memThreshold, nearLimitThreshold })
+  thresholdsRef.current = { cpuThreshold, memThreshold, nearLimitThreshold }
+
   const refresh = useCallback(async (signal?: AbortSignal) => {
     setError(null)
+    setPressureError(null)
+    const { cpuThreshold: cpuT, memThreshold: memT, nearLimitThreshold: nearT } = thresholdsRef.current
     try {
-      const [nodeData, podData, nodeInventory, workloadPressure] = await Promise.all([
+      const [nodeData, podData, nodeInventory, pressureResult] = await Promise.all([
         clusterApi.getNodeMetrics(signal),
         clusterApi.getPodMetrics(namespace || undefined, signal),
         clusterApi.getNodes(signal),
         clusterApi.getWorkloadPressure(
             {
               namespace: namespace || undefined,
-              cpuThresholdPercent: cpuThreshold,
-              memoryThresholdPercent: memThreshold,
-              nearLimitPercent: nearLimitThreshold,
+              cpuThresholdPercent: cpuT,
+              memoryThresholdPercent: memT,
+              nearLimitPercent: nearT,
             },
             signal,
-        ).catch(() => null),
+        ).then(
+            (data) => ({ ok: true as const, data }),
+            (err: unknown) => {
+              if (err instanceof Error && err.name === 'AbortError') throw err
+              return { ok: false as const, message: err instanceof Error ? err.message : 'Unable to evaluate workload pressure' }
+            },
+        ),
       ])
       setNodeMetrics(nodeData)
       setPodMetrics(podData)
       setNodes(nodeInventory)
-      if (workloadPressure) setPressure(workloadPressure)
+      if (pressureResult.ok) {
+        setPressure(pressureResult.data)
+      } else {
+        setPressureError(pressureResult.message)
+      }
       setUpdatedAt(new Date().toLocaleTimeString())
     } catch (cause) {
       if (cause instanceof Error && cause.name === 'AbortError') return
@@ -89,7 +105,7 @@ export function MetricsPage() {
     } finally {
       if (!signal?.aborted) setLoading(false)
     }
-  }, [namespace, cpuThreshold, memThreshold, nearLimitThreshold])
+  }, [namespace])
 
   useEffect(() => {
     const controller = new AbortController()
@@ -113,6 +129,10 @@ export function MetricsPage() {
   const totalCpu = nodeMetrics.reduce((sum, metric) => sum + metric.cpuMilliCores, 0)
   const totalMemory = nodeMetrics.reduce((sum, metric) => sum + metric.memoryBytes, 0)
   const timestamp = nodeMetrics[0]?.timestamp ?? podMetrics[0]?.timestamp
+  const missingMetricsWorkloadsCount = useMemo(
+      () => (pressure?.workloads ?? []).filter((w) => !w.metricsAvailable).length,
+      [pressure],
+  )
 
   return <div className="space-y-7">
     <section className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
@@ -123,7 +143,15 @@ export function MetricsPage() {
       {nodeMetrics.length === 0 && podMetrics.length === 0 && !error && <div role="status" className="rounded-xl border border-amber-300/15 bg-amber-300/[0.04] px-4 py-3 text-xs text-amber-200">The Metrics API returned no measurements. Confirm that metrics-server is installed and reporting data.</div>}
       {pressure && (
           <div role="status" className="rounded-xl border border-white/[0.07] bg-[#0d1523] px-4 py-3 text-xs text-slate-400">
-            Traffic telemetry: <strong className="text-slate-200">{pressure.trafficMetricsAvailable ? 'Available' : 'Unavailable'}</strong> — {pressure.trafficStatusNote}
+            <span>
+              Workload metrics source: <strong className="text-slate-200">{pressure.metricsSource ?? 'UNKNOWN'}</strong>
+              {pressure.metricsTimestamp ? ` · Sample ts: ${new Date(pressure.metricsTimestamp).toLocaleTimeString()}` : ''}
+              {pressure.staleMetrics ? <strong className="ml-2 text-amber-300">(Stale telemetry)</strong> : null}
+            </span>
+            <span className="mx-2 text-slate-600">·</span>
+            <span>
+              Traffic telemetry: <strong className="text-slate-200">{pressure.trafficMetricsAvailable ? 'Configured' : 'Unavailable'}</strong> — {pressure.trafficStatusNote}
+            </span>
           </div>
       )}
       <div className="grid gap-3 sm:grid-cols-2">
@@ -172,17 +200,47 @@ export function MetricsPage() {
                   className="w-16 rounded border border-white/10 bg-slate-950/50 px-2 py-1 text-slate-200"
               />
             </label>
+            <button
+                type="button"
+                onClick={() => void refresh()}
+                className="rounded-lg border border-cyan-400/25 bg-cyan-500/10 px-2.5 py-1 text-xs text-cyan-200 hover:bg-cyan-500/20"
+            >
+              Evaluate
+            </button>
           </div>
         </div>
 
+        {/* Distinct banner for metric-source errors or missing workload metrics */}
+        {pressureError && (
+            <div role="alert" className="mt-4 rounded-lg border border-rose-400/25 bg-rose-400/[0.06] px-3.5 py-2.5 text-xs text-rose-200">
+              <strong>Metric source error:</strong> Unable to evaluate workload pressure ({pressureError}). This is a telemetry retrieval error, not a workload overload alert.
+            </div>
+        )}
+        {!pressureError && pressure && (!pressure.metricsServerAvailable || missingMetricsWorkloadsCount > 0) && (
+            <div role="status" className="mt-4 rounded-lg border border-amber-300/20 bg-amber-300/[0.05] px-3.5 py-2.5 text-xs text-amber-200">
+              <strong>Metrics unavailable / incomplete:</strong>{' '}
+              {!pressure.metricsServerAvailable
+                  ? `metrics-server unavailable (source: ${pressure.metricsSource ?? 'UNAVAILABLE'}). `
+                  : `${missingMetricsWorkloadsCount} workload(s) currently have no pod metrics. `}
+              Missing metrics are reported as unavailable, not healthy or overloaded.
+            </div>
+        )}
+
         <div className="mt-4">
           {!pressure || pressure.warnings.length === 0 ? (
-              <p className="text-xs text-slate-500">No workloads currently exceed configured CPU, memory, or limit thresholds.</p>
+              <p className="text-xs text-slate-500">No threshold overload alerts triggered for workloads with available metrics.</p>
           ) : (
               <div className="space-y-2">
                 {pressure.warnings.map((w) => (
-                    <div key={w.warningKey} className="flex items-center justify-between gap-3 rounded-lg border border-amber-400/20 bg-amber-400/[0.05] px-3.5 py-2.5 text-xs text-amber-200">
-                      <span>{w.message}</span>
+                    <div key={w.warningKey} className="flex flex-col justify-between gap-2 rounded-lg border border-amber-400/20 bg-amber-400/[0.05] px-3.5 py-2.5 text-xs text-amber-200 sm:flex-row sm:items-center">
+                      <div className="space-y-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="rounded bg-white/[0.08] px-1.5 py-0.5 font-mono text-[10px] font-semibold text-amber-100">{w.code}</span>
+                          <span className="font-mono text-[11px] text-slate-200">{w.resourceKind} · {w.namespace}/{w.resourceName}</span>
+                          <span className="tabular-nums text-[11px] text-amber-300">Observed: {w.observedPercent}% / Threshold: {w.thresholdPercent}%</span>
+                        </div>
+                        <p className="text-slate-300">{w.message}</p>
+                      </div>
                       <StatusBadge status={w.severity} />
                     </div>
                 ))}
@@ -211,7 +269,7 @@ export function MetricsPage() {
                   <th className="px-4 py-3 font-semibold">Ready</th>
                   <th className="px-4 py-3 font-semibold">CPU (Use / Req / Lim)</th>
                   <th className="px-4 py-3 font-semibold">Memory (Use / Req / Lim)</th>
-                  <th className="px-4 py-3 font-semibold">Pressure</th>
+                  <th className="px-4 py-3 font-semibold">Pressure / Telemetry</th>
                 </tr>
                 </thead>
                 <tbody className="divide-y divide-white/[0.055]">
@@ -219,13 +277,13 @@ export function MetricsPage() {
                     <tr key={`${w.kind}/${w.namespace}/${w.name}`} className="hover:bg-white/[0.025]">
                       <td className="px-4 py-3.5 font-medium text-slate-200">
                         <div>{w.name}</div>
-                        <div className="text-[10px] text-slate-500">{w.kind}</div>
+                        <div className="text-[10px] text-slate-500">{w.kind} · {w.metricsSource ?? '—'}</div>
                       </td>
                       <td className="px-4 py-3.5 text-slate-400">{w.namespace}</td>
                       <td className="px-4 py-3.5 tabular-nums text-slate-300">{w.readyReplicas} / {w.desiredReplicas}</td>
                       <td className="px-4 py-3.5 tabular-nums text-slate-300">
                         <div>
-                          {w.metricsAvailable ? cpu(w.cpuUsageMilliCores) : 'Metrics N/A'}{' '}
+                          {w.metricsAvailable ? cpu(w.cpuUsageMilliCores) : 'Metrics Unavailable'}{' '}
                           {w.cpuUsagePercent !== null ? <span className="text-cyan-300">({w.cpuUsagePercent}%)</span> : null}
                         </div>
                         <div className="text-[10px] text-slate-500">
@@ -234,7 +292,7 @@ export function MetricsPage() {
                       </td>
                       <td className="px-4 py-3.5 tabular-nums text-slate-300">
                         <div>
-                          {w.metricsAvailable ? bytes(w.memoryUsageBytes) : 'Metrics N/A'}{' '}
+                          {w.metricsAvailable ? bytes(w.memoryUsageBytes) : 'Metrics Unavailable'}{' '}
                           {w.memoryUsagePercent !== null ? <span className="text-cyan-300">({w.memoryUsagePercent}%)</span> : null}
                         </div>
                         <div className="text-[10px] text-slate-500">
@@ -242,7 +300,10 @@ export function MetricsPage() {
                         </div>
                       </td>
                       <td className="px-4 py-3.5">
-                        <StatusBadge status={w.overloaded ? 'Warning' : w.metricsAvailable ? 'Healthy' : 'Unknown'} />
+                        <StatusBadge status={w.overloaded ? 'Warning' : w.metricsAvailable ? 'Healthy' : 'Metrics Unavailable'} />
+                        {w.warningCodes.length > 0 && (
+                            <div className="mt-1 font-mono text-[10px] text-amber-300">{w.warningCodes.join(', ')}</div>
+                        )}
                       </td>
                     </tr>
                 ))}

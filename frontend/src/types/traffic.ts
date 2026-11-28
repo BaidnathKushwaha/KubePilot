@@ -5,6 +5,8 @@ export interface WorkloadResourceItem {
     desiredReplicas: number
     readyReplicas: number
     metricsAvailable: boolean
+    metricsSource?: string | null
+    metricsTimestamp?: string | null
     cpuUsageMilliCores: number
     memoryUsageBytes: number
     cpuRequestMilliCores: number | null
@@ -37,10 +39,12 @@ export interface WorkloadPressureResponse {
     metricsServerAvailable: boolean
     trafficMetricsAvailable: boolean
     trafficStatusNote: string
+    metricsSource?: string | null
+    metricsTimestamp?: string | null
+    staleMetrics?: boolean
     workloads: WorkloadResourceItem[]
     warnings: OverloadWarningItem[]
 }
-
 export interface HpaConditionItem {
     type: string
     status: string

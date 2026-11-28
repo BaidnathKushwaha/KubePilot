@@ -42,6 +42,18 @@ export function ServicesPage() {
         )
     }, [data, search])
 
+    const totals = useMemo(() => {
+        const list = data?.services ?? []
+        return list.reduce(
+            (acc, svc) => {
+                acc.ready += svc.readyEndpointCount
+                acc.unready += svc.unreadyEndpointCount
+                return acc
+            },
+            { ready: 0, unready: 0 },
+        )
+    }, [data])
+
     return (
         <div className="space-y-7">
             <section className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
@@ -53,7 +65,7 @@ export function ServicesPage() {
                         Services & Endpoint Distribution
                     </h1>
                     <p className="mt-2 text-sm text-slate-400">
-                        Inspect Services, ports, EndpointSlice readiness, and matched workloads {namespace ? `in ${namespace}` : 'across all namespaces'}.
+                        Discovered Kubernetes Services, Ingress routes, EndpointSlice readiness, and matched workloads {namespace ? `in ${namespace}` : 'across all namespaces'}.
                     </p>
                 </div>
                 <button
@@ -69,8 +81,17 @@ export function ServicesPage() {
             <RequestState loading={loading && !data} error={error && !data ? error : null} onRetry={() => void loadTraffic()}>
                 {data && (
                     <>
-                        <div role="status" className="rounded-xl border border-amber-300/15 bg-amber-300/[0.04] px-4 py-3 text-xs text-amber-200">
-                            Traffic rate metrics: <strong>{data.trafficRateTelemetryAvailable ? 'Available' : 'Unavailable'}</strong> — {data.trafficTelemetryNote}
+                        <div role="status" className="rounded-xl border border-cyan-300/15 bg-cyan-300/[0.04] px-4 py-3 text-xs text-slate-300">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                                <span>
+                                    <strong className="text-cyan-200">Discovered Traffic Topology</strong> (K8s Services, Ingresses & EndpointSlices) ·{' '}
+                                    Measured request-rate telemetry: <strong>{data.trafficRateTelemetryAvailable ? 'Available' : 'Not Available'}</strong>
+                                </span>
+                                <span className="tabular-nums text-[11px] text-slate-400">
+                                    {data.services.length} service(s) · {totals.ready} ready / {totals.unready} unready endpoint(s)
+                                </span>
+                            </div>
+                            <p className="mt-1.5 text-[11px] leading-5 text-slate-400">{data.trafficTelemetryNote}</p>
                         </div>
 
                         <div className="relative">
@@ -93,9 +114,9 @@ export function ServicesPage() {
                                     <article key={`${svc.namespace}/${svc.name}`} className="rounded-xl border border-white/[0.07] bg-[#0d1523] p-5 text-xs">
                                         <div className="flex flex-wrap items-start justify-between gap-3 border-b border-white/[0.06] pb-3.5">
                                             <div className="flex items-center gap-3">
-                        <span className="flex h-9 w-9 items-center justify-center rounded-lg border border-cyan-400/20 bg-cyan-400/10 text-cyan-300">
-                          <Network size={16} />
-                        </span>
+                                                <span className="flex h-9 w-9 items-center justify-center rounded-lg border border-cyan-400/20 bg-cyan-400/10 text-cyan-300">
+                                                    <Network size={16} />
+                                                </span>
                                                 <div>
                                                     <h2 className="text-sm font-semibold text-white">{svc.name}</h2>
                                                     <p className="text-[11px] text-slate-400">
@@ -144,6 +165,9 @@ export function ServicesPage() {
                                                                 <p className="truncate text-[10px] text-slate-500">
                                                                     {ep.targetKind && ep.targetName ? `${ep.targetKind}/${ep.targetName}` : 'Unreferenced endpoint'} · {ep.sliceName}
                                                                 </p>
+                                                                {ep.trafficRateNote && (
+                                                                    <p className="truncate text-[10px] text-slate-600">{ep.trafficRateNote}</p>
+                                                                )}
                                                             </div>
                                                             <StatusBadge status={ep.ready ? 'Ready' : 'NotReady'} />
                                                         </div>

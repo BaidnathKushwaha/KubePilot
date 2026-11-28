@@ -26,12 +26,12 @@ public class PrometheusMonitoringService {
     private static final String CPU_QUERY =
             "sum by (namespace, pod) (" +
                     "rate(container_cpu_usage_seconds_total{" +
-                    "container!=\"\",container!=\"POD\",pod!=\"\"}[5m]))";
+                    "namespace!=\"\",pod!=\"\"}[5m]))";
 
     private static final String MEMORY_QUERY =
             "sum by (namespace, pod) (" +
                     "container_memory_working_set_bytes{" +
-                    "container!=\"\",container!=\"POD\",pod!=\"\"})";
+                    "namespace!=\"\",pod!=\"\"})";
 
     private final String prometheusUrl;
     private final RestClient restClient;

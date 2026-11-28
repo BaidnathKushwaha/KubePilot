@@ -5,7 +5,6 @@ import { NodesPage } from './pages/NodesPage'
 import { PodsPage } from './pages/PodsPage'
 import { MetricsPage } from './pages/MetricsPage'
 import { TopologyPage } from './pages/TopologyPage'
-import { ResourcePlaceholderPage } from './pages/ResourcePlaceholderPage'
 import DeploymentsPage from './pages/DeploymentsPage'
 import StatefulSetsPage from './pages/StatefulSetsPage'
 import {NamespacesPage} from "./pages/NamespacesPage.tsx";
